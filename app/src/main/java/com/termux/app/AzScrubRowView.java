@@ -144,6 +144,7 @@ public final class AzScrubRowView extends AppCompatTextView {
                 : (waveStrength > 0.01f && i == activeIndex);
             if (activeFocus && interactionMode != InteractionMode.INLINE_EMPHASIS_TRACK) {
                 waveLift *= 1.2f;
+                waveLift = Math.max(waveLift, dp(6));
             }
             float scale = interactionMode == InteractionMode.INLINE_EMPHASIS_TRACK
                 ? (activeFocus ? 1.14f : 1f)
@@ -260,6 +261,7 @@ public final class AzScrubRowView extends AppCompatTextView {
             : (float) Math.sin(Math.min(1f, envelope) * (Math.PI * 0.5f)) * (dp(15) * waveStrength);
         if (activeFocus && interactionMode != InteractionMode.INLINE_EMPHASIS_TRACK) {
             waveLift *= 1.2f;
+            waveLift = Math.max(waveLift, dp(6));
         }
         float baseTextSize = getTextSize();
         float scale = interactionMode == InteractionMode.INLINE_EMPHASIS_TRACK

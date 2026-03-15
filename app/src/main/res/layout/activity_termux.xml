@@ -159,6 +159,15 @@
             android:layout_alignParentBottom="true"
             android:visibility="gone">
 
+            <com.termux.app.LauncherAzGestureFxView
+                android:id="@+id/apps_bar_az_fx_overlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_alignParentBottom="true"
+                android:clickable="false"
+                android:focusable="false"
+                android:visibility="gone" />
+
             <com.github.mmin18.widget.RealtimeBlurView
                 android:id="@+id/extrakeys_backgroundblur"
                 android:layout_width="match_parent"
@@ -198,15 +207,6 @@
                 android:layout_height="37.5dp"
                 android:layout_alignParentBottom="true"
                 android:background="@android:color/transparent"/>
-
-            <com.termux.app.LauncherAzGestureFxView
-                android:id="@+id/apps_bar_az_fx_overlay"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_alignParentBottom="true"
-                android:clickable="false"
-                android:focusable="false"
-                android:visibility="gone" />
         </RelativeLayout>
         </RelativeLayout>
     </FrameLayout>
