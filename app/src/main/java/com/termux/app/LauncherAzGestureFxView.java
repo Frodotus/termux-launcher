@@ -302,17 +302,30 @@ public final class LauncherAzGestureFxView extends View {
             cy = clamp(cy, top + dp(6f), bottom - dp(6f));
         }
 
-        float w = dp(30f);
-        float h = dp(21f);
-        float radius = dp(11f);
+        float w = dp(24f);
+        float h = dp(18f);
+        float radius = dp(9f);
         if (hasFocus && !focusRawRect.isEmpty()) {
-            float slotW = focusRawRect.width();
-            float slotH = focusRawRect.height();
-            w = Math.max(dp(20f), Math.min(dp(34f), slotW * 0.90f));
-            h = Math.max(dp(16f), Math.min(dp(24f), slotH * 0.92f));
-            radius = Math.max(dp(8f), Math.min(dp(14f), h * 0.48f));
-            cx = focusRawRect.centerX() - locationOnScreen[0];
-            cy = focusRawRect.centerY() - locationOnScreen[1];
+            RectF focusLocal = new RectF(
+                focusRawRect.left - locationOnScreen[0],
+                focusRawRect.top - locationOnScreen[1],
+                focusRawRect.right - locationOnScreen[0],
+                focusRawRect.bottom - locationOnScreen[1]
+            );
+            float expandX = Math.max(dp(0.8f), focusLocal.width() * 0.04f);
+            float expandY = Math.max(dp(0.6f), focusLocal.height() * 0.03f);
+            focusLocal.inset(-expandX, -expandY);
+            if (!azRowRawBounds.isEmpty()) {
+                float top = azRowRawBounds.top - locationOnScreen[1];
+                float bottom = azRowRawBounds.bottom - locationOnScreen[1];
+                float centerY = focusLocal.centerY();
+                centerY = clamp(centerY, top + (focusLocal.height() * 0.5f), bottom - (focusLocal.height() * 0.5f));
+                float halfH = focusLocal.height() * 0.5f;
+                focusLocal.top = centerY - halfH;
+                focusLocal.bottom = centerY + halfH;
+            }
+            drawLetterGlassPopupEvolution(canvas, focusLocal, Math.max(dp(8f), focusLocal.height() * 0.46f));
+            return;
         }
 
         tmpRect.set(cx - (w * 0.5f), cy - (h * 0.5f), cx + (w * 0.5f), cy + (h * 0.5f));
@@ -320,22 +333,22 @@ public final class LauncherAzGestureFxView extends View {
     }
 
     private void drawLetterGlassPopupEvolution(Canvas canvas, RectF pill, float radius) {
-        glassFillPaint.setColor(withAlpha(vividLetterTintColor, 196));
+        glassFillPaint.setColor(withAlpha(vividLetterTintColor, 208));
         canvas.drawRoundRect(pill, radius, radius, glassFillPaint);
 
         RectF innerVeil = new RectF(pill);
         float veilPad = Math.max(dp(1.4f), Math.min(pill.width(), pill.height()) * 0.10f);
         innerVeil.inset(veilPad, veilPad * 0.95f);
-        glassInnerPaint.setColor(withAlpha(Color.WHITE, 42));
+        glassInnerPaint.setColor(withAlpha(Color.WHITE, 48));
         canvas.drawRoundRect(innerVeil, Math.max(dp(4f), radius - veilPad), Math.max(dp(4f), radius - veilPad), glassInnerPaint);
 
         RectF sheen = new RectF(innerVeil);
         sheen.bottom = sheen.top + Math.max(dp(4.6f), innerVeil.height() * 0.42f);
-        glassInnerPaint.setColor(withAlpha(Color.WHITE, 76));
+        glassInnerPaint.setColor(withAlpha(Color.WHITE, 84));
         canvas.drawRoundRect(sheen, Math.max(dp(3f), radius - dp(5f)), Math.max(dp(3f), radius - dp(5f)), glassInnerPaint);
 
         glassStrokePaint.setStrokeWidth(dp(1.25f));
-        glassStrokePaint.setColor(withAlpha(Color.WHITE, 132));
+        glassStrokePaint.setColor(withAlpha(Color.WHITE, 144));
         canvas.drawRoundRect(pill, radius, radius, glassStrokePaint);
 
         RectF innerRim = new RectF(pill);

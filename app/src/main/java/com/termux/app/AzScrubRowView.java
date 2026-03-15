@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Build;
@@ -65,6 +66,7 @@ public final class AzScrubRowView extends AppCompatTextView {
     @Nullable private ScrubCallback callback;
     private int currentSelectionIndex = 0;
     private final Paint letterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Rect glyphRect = new Rect();
     private float activeTouchX = -1f;
     private float waveStrength = 0f;
     private int accentColor = Color.WHITE;
@@ -273,13 +275,25 @@ public final class AzScrubRowView extends AppCompatTextView {
         Paint.FontMetrics fontMetrics = letterPaint.getFontMetrics();
         float baseline = (getHeight() - getPaddingBottom() - dp(2) - fontMetrics.descent) - waveLift;
         String label = String.valueOf(visibleLetters[index]);
-        float textWidth = Math.max(letterPaint.measureText(label), dp(8));
-        float glyphTop = baseline + fontMetrics.ascent;
-        float glyphBottom = baseline + fontMetrics.descent;
-        float padX = Math.max(dp(5), Math.min(dp(8), slot * 0.16f));
-        float padY = Math.max(dp(3), Math.min(dp(5), (glyphBottom - glyphTop) * 0.20f));
-        float glassLeft = Math.max(0f, x - (textWidth * 0.5f) - padX);
-        float glassRight = Math.min(getWidth(), x + (textWidth * 0.5f) + padX);
+        glyphRect.setEmpty();
+        letterPaint.getTextBounds(label, 0, label.length(), glyphRect);
+        float glyphLeft = x + glyphRect.left;
+        float glyphRight = x + glyphRect.right;
+        float glyphTop = baseline + glyphRect.top;
+        float glyphBottom = baseline + glyphRect.bottom;
+        float glyphWidth = glyphRight - glyphLeft;
+        if (glyphRight <= glyphLeft) {
+            float textWidth = Math.max(letterPaint.measureText(label), dp(8));
+            glyphLeft = x - (textWidth * 0.5f);
+            glyphRight = x + (textWidth * 0.5f);
+            glyphWidth = textWidth;
+        } else {
+            glyphWidth = Math.max(dp(8), glyphWidth);
+        }
+        float padX = Math.max(dp(3), Math.min(dp(5), slot * 0.10f));
+        float padY = Math.max(dp(2), Math.min(dp(4), Math.max(1f, glyphBottom - glyphTop) * 0.22f));
+        float glassLeft = Math.max(0f, glyphLeft - padX);
+        float glassRight = Math.min(getWidth(), glyphRight + padX);
         float glassTop = Math.max(0f, glyphTop - padY);
         float glassBottom = Math.min(getHeight(), glyphBottom + padY);
 
@@ -289,9 +303,9 @@ public final class AzScrubRowView extends AppCompatTextView {
         out.centerRawX = loc[0] + x;
         out.baselineRawY = loc[1] + baseline;
         out.glyphBoundsRaw.set(
-            loc[0] + (x - (textWidth * 0.5f)),
+            loc[0] + (x - (glyphWidth * 0.5f)),
             loc[1] + glyphTop,
-            loc[0] + (x + (textWidth * 0.5f)),
+            loc[0] + (x + (glyphWidth * 0.5f)),
             loc[1] + glyphBottom
         );
         out.glassBoundsRaw.set(

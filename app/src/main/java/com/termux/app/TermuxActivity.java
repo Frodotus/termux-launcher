@@ -1018,8 +1018,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mLauncherAzGestureFxView.setColors(orbColor, edgeColor);
             updateAzOverflowAffordance();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                mLauncherAzGestureFxView.setElevation(dpToPx(2));
-                mLauncherAzGestureFxView.setTranslationZ(dpToPx(2));
+                mLauncherAzGestureFxView.setElevation(0f);
+                mLauncherAzGestureFxView.setTranslationZ(-dpToPx(8));
             }
         }
         mAzScrubRowView.setBackgroundColor(Color.TRANSPARENT);
