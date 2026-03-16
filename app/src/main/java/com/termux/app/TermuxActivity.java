@@ -254,6 +254,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private char mAzLockedLetter = '#';
     private int mAzLockedSelectionIndex = 0;
     private boolean mAzHasLockedSelection = false;
+    private boolean mAzHasPreviewAnchor = false;
+    private char mAzPreviewAnchorLetter = '#';
+    private int mAzPreviewAnchorSelectionIndex = 0;
+    private float mAzGestureDownTouchX = 0f;
+    private float mAzGestureDownTouchY = 0f;
     private float mAzLastRawX = 0f;
     private float mAzLastRawY = 0f;
     private float mAzLastAnchorRawX = 0f;
@@ -1057,6 +1062,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (phase == AzScrubRowView.GesturePhase.DOWN) {
             mAzGestureMode = AzGestureMode.AZ_TRACKING;
             mAzHasLockedSelection = false;
+            mAzHasPreviewAnchor = false;
+            mAzGestureDownTouchX = touchX;
+            mAzGestureDownTouchY = touchY;
             mAzScrubRowView.setInteractionMode(AzScrubRowView.InteractionMode.WAVE_TRACK);
             mAzScrubRowView.setLockedInlineLetter(null);
         }
@@ -1084,21 +1092,31 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         float lockThreshold = -(rowHeight * 0.16f);
         float unlockThreshold = rowHeight * 0.20f;
         float unlockMaxBound = rowHeight * 1.08f;
+        float minUpwardTravel = Math.max(getResources().getDisplayMetrics().density * 6f, rowHeight * 0.12f);
+        float dyFromDown = touchY - mAzGestureDownTouchY;
+        float dxFromDown = touchX - mAzGestureDownTouchX;
+        boolean upwardIntent = dyFromDown <= -minUpwardTravel
+            && Math.abs(dyFromDown) >= (Math.abs(dxFromDown) * 0.45f);
         boolean withinAzFilterBand = touchY >= filterUpperBound && touchY <= filterLowerBound;
-        boolean enteringIconTrack = touchY <= lockThreshold;
+        boolean enteringIconTrack = touchY <= lockThreshold || upwardIntent;
         boolean returningToAzTrack = touchY >= unlockThreshold && touchY <= unlockMaxBound;
 
         if (mAzGestureMode == AzGestureMode.AZ_TRACKING) {
-            if (withinAzFilterBand || phase == AzScrubRowView.GesturePhase.DOWN) {
-                mSuggestionBarView.persistAzPreview(letter, selectionIndex);
-            }
             if (enteringIconTrack) {
+                if (mAzHasPreviewAnchor) {
+                    mAzLockedLetter = mAzPreviewAnchorLetter;
+                    mAzLockedSelectionIndex = mAzPreviewAnchorSelectionIndex;
+                } else {
+                    mAzLockedLetter = letter;
+                    mAzLockedSelectionIndex = selectionIndex;
+                }
+                persistAzPreviewAnchor(mAzLockedLetter, mAzLockedSelectionIndex);
                 mAzGestureMode = AzGestureMode.ICON_TRACKING_LOCKED;
-                mAzLockedLetter = letter;
-                mAzLockedSelectionIndex = selectionIndex;
                 mAzHasLockedSelection = true;
                 mAzScrubRowView.setInteractionMode(AzScrubRowView.InteractionMode.INLINE_EMPHASIS_TRACK);
-                mAzScrubRowView.setLockedInlineLetter(Character.toUpperCase(letter));
+                mAzScrubRowView.setLockedInlineLetter(Character.toUpperCase(mAzLockedLetter));
+            } else if (withinAzFilterBand || phase == AzScrubRowView.GesturePhase.DOWN) {
+                persistAzPreviewAnchor(letter, selectionIndex);
             }
         } else if (mAzGestureMode == AzGestureMode.ICON_TRACKING_LOCKED && mAzHasLockedSelection) {
             if (returningToAzTrack && phase != AzScrubRowView.GesturePhase.UP) {
@@ -1108,12 +1126,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mAzScrubRowView.setLockedInlineLetter(null);
                 mSuggestionBarView.clearAzFocusedEntry();
                 if (withinAzFilterBand) {
-                    mSuggestionBarView.persistAzPreview(letter, selectionIndex);
+                    persistAzPreviewAnchor(letter, selectionIndex);
                 } else {
-                    mSuggestionBarView.persistAzPreview(mAzLockedLetter, mAzLockedSelectionIndex);
+                    persistAzPreviewAnchor(mAzLockedLetter, mAzLockedSelectionIndex);
                 }
             } else {
-                mSuggestionBarView.persistAzPreview(mAzLockedLetter, mAzLockedSelectionIndex);
+                persistAzPreviewAnchor(mAzLockedLetter, mAzLockedSelectionIndex);
                 mAzScrubRowView.setLockedInlineLetter(Character.toUpperCase(mAzLockedLetter));
             }
         }
@@ -1147,6 +1165,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 scheduleAzOverflowRefresh();
             }
         }
+    }
+
+    private void persistAzPreviewAnchor(char letter, int selectionIndex) {
+        if (mSuggestionBarView == null) return;
+        mSuggestionBarView.persistAzPreview(letter, selectionIndex);
+        mAzPreviewAnchorLetter = letter;
+        mAzPreviewAnchorSelectionIndex = selectionIndex;
+        mAzHasPreviewAnchor = true;
     }
 
     private void updateAzOverlayState(@Nullable SuggestionBarView.AzDragFocusResult focusResult, char activeLetter) {
@@ -1298,6 +1324,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mAzLockedLetter = '#';
         mAzLockedSelectionIndex = 0;
         mAzHasLockedSelection = false;
+        mAzHasPreviewAnchor = false;
         mAzCurrentFocusResult = null;
         if (mAzScrubRowView != null) {
             mAzScrubRowView.setInteractionMode(AzScrubRowView.InteractionMode.WAVE_TRACK);
