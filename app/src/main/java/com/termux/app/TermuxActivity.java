@@ -9,6 +9,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.LauncherApps;
+import android.content.pm.ShortcutInfo;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.RectF;
@@ -20,6 +22,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.Gravity;
@@ -196,6 +199,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private final BroadcastReceiver mTermuxActivityBroadcastReceiver = new TermuxActivityBroadcastReceiver();
     private final BroadcastReceiver mPackageChangeReceiver = new PackageChangeReceiver();
     private boolean mPackageChangeReceiverRegistered = false;
+    @Nullable private LauncherApps mLauncherApps;
+    @Nullable private LauncherApps.Callback mLauncherAppsCallback;
+    private boolean mLauncherAppsCallbackRegistered = false;
+    private static final long PACKAGE_REFRESH_DEBOUNCE_MS = 120L;
+    private final Runnable mPackageRefreshRunnable = this::refreshSuggestionBarFromPackageState;
 
     /**
      * The last toast shown, used cancel current toast before showing new in {@link #showToast(String, boolean)}.
@@ -454,7 +462,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     
         registerTermuxActivityBroadcastReceiver();
         registerPackageChangeReceiver();
-        refreshSuggestionBarFromPackageState();
+        registerLauncherAppsCallback();
+        scheduleSuggestionBarPackageRefresh(true);
     }
 
     @Override
@@ -731,6 +740,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         removeTermuxActivityRootViewGlobalLayoutListener();
         unregisterTermuxActivityBroadcastReceiver();
         unregisterPackageChangeReceiver();
+        unregisterLauncherAppsCallback();
+        mAzGestureHandler.removeCallbacks(mPackageRefreshRunnable);
         getDrawer().closeDrawers();
     }
 
@@ -2154,6 +2165,71 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mPackageChangeReceiverRegistered = true;
     }
 
+    private void registerLauncherAppsCallback() {
+        if (mLauncherAppsCallbackRegistered) {
+            return;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            return;
+        }
+        try {
+            if (mLauncherApps == null) {
+                mLauncherApps = (LauncherApps) getSystemService(Context.LAUNCHER_APPS_SERVICE);
+            }
+            if (mLauncherApps == null) {
+                return;
+            }
+            if (mLauncherAppsCallback == null) {
+                mLauncherAppsCallback = new LauncherApps.Callback() {
+                    @Override
+                    public void onPackageRemoved(String packageName, UserHandle user) {
+                        scheduleSuggestionBarPackageRefresh(false);
+                    }
+
+                    @Override
+                    public void onPackageAdded(String packageName, UserHandle user) {
+                        scheduleSuggestionBarPackageRefresh(false);
+                    }
+
+                    @Override
+                    public void onPackageChanged(String packageName, UserHandle user) {
+                        scheduleSuggestionBarPackageRefresh(false);
+                    }
+
+                    @Override
+                    public void onPackagesAvailable(String[] packageNames, UserHandle user, boolean replacing) {
+                        scheduleSuggestionBarPackageRefresh(false);
+                    }
+
+                    @Override
+                    public void onPackagesUnavailable(String[] packageNames, UserHandle user, boolean replacing) {
+                        scheduleSuggestionBarPackageRefresh(false);
+                    }
+
+                    @Override
+                    public void onShortcutsChanged(String packageName, List<ShortcutInfo> shortcuts, UserHandle user) {
+                        // no-op: app list handled by package callbacks
+                    }
+                };
+            }
+            mLauncherApps.registerCallback(mLauncherAppsCallback, mAzGestureHandler);
+            mLauncherAppsCallbackRegistered = true;
+        } catch (Throwable throwable) {
+            Logger.logWarn(LOG_TAG, "LauncherApps callback registration failed: " + throwable.getMessage());
+        }
+    }
+
+    private void unregisterLauncherAppsCallback() {
+        if (!mLauncherAppsCallbackRegistered || mLauncherApps == null || mLauncherAppsCallback == null) {
+            return;
+        }
+        try {
+            mLauncherApps.unregisterCallback(mLauncherAppsCallback);
+        } catch (Throwable ignored) {
+        }
+        mLauncherAppsCallbackRegistered = false;
+    }
+
     private void refreshSuggestionBarFromPackageState() {
         if (mSuggestionBarView == null) {
             return;
@@ -2166,6 +2242,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             input = normalizeSuggestionBarInput(mTerminalView.getCurrentInput());
         }
         mSuggestionBarView.reloadWithInput(input, mTerminalView);
+    }
+
+    private void scheduleSuggestionBarPackageRefresh(boolean immediate) {
+        mAzGestureHandler.removeCallbacks(mPackageRefreshRunnable);
+        if (immediate) {
+            refreshSuggestionBarFromPackageState();
+            return;
+        }
+        mAzGestureHandler.postDelayed(mPackageRefreshRunnable, PACKAGE_REFRESH_DEBOUNCE_MS);
     }
 
     private void unregisterPackageChangeReceiver() {
@@ -2199,7 +2284,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (Intent.ACTION_PACKAGE_ADDED.equals(action) ||
                 Intent.ACTION_PACKAGE_REMOVED.equals(action) ||
                 Intent.ACTION_PACKAGE_CHANGED.equals(action)) {
-                refreshSuggestionBarFromPackageState();
+                scheduleSuggestionBarPackageRefresh(false);
             }
         }
     }
