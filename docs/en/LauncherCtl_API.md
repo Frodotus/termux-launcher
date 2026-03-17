@@ -8,6 +8,10 @@ LauncherCtl is a localhost API bridge for exposing Android/app data to shell too
 - Endpoint URL: `~/.launcherctl/endpoint`.
 - CLI: `$PREFIX/bin/launcherctl` (auto-installed on app startup).
 
+Important behavior split:
+- `/v1/exec` is a buffered API execution path and is not suitable for full-screen interactive TUI programs.
+- `launcherctl tty-exec` is a local CLI helper that uses `~/.rish/rish` for interactive/TTY-required commands.
+
 ## Files and Components
 
 - Server implementation:
@@ -116,11 +120,31 @@ launcherctl volume 8
 launcherctl volume 6 3
 launcherctl lock
 launcherctl exec id
+launcherctl tty-doctor
+launcherctl tty-exec "id"
 launcherctl permission
 launcherctl token rotate
 ```
 
 Note: `launcherctl-status` is not a command. Use `launcherctl status`.
+
+## Interactive Commands (`tty-exec`)
+
+Use `tty-exec` when a tool requires an interactive terminal (for example `btop`).
+
+Prerequisites in user home:
+- `~/.rish/rish` (executable)
+- `~/.rish/rish_shizuku.dex` (present; on Android 14+, keep this non-writable)
+
+Diagnostics:
+```sh
+launcherctl tty-doctor
+```
+
+Example:
+```sh
+launcherctl tty-exec "XDG_CONFIG_HOME=/data/local/tmp/btop-config /data/local/tmp/btop/btop --force-utf"
+```
 
 ## Security Model
 
@@ -199,6 +223,10 @@ If not granted, responses include:
 ### `launcherctl exec` returns forbidden/disabled
 - Check `~/.launcherctl/config.json` and set `"execEnabled": true`.
 - Ensure command matches `allowedCommandPrefixes`.
+
+### Interactive command fails with "No tty detected"
+- Use `launcherctl tty-exec "<command>"` instead of `launcherctl exec`.
+- Run `launcherctl tty-doctor` and apply its suggested fixes for `~/.rish`.
 
 ### `launcherctl media`/`notifications` empty
 - Grant notification access for the app in Android settings.

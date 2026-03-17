@@ -912,6 +912,49 @@ public class LauncherCtlApiServer {
             "cmd=\"${1:-status}\"\n" +
             "shift || true\n" +
             "json_escape() { printf '%s' \"$1\" | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g'; }\n" +
+            "RISH_DIR=\"$HOME/.rish\"\n" +
+            "RISH_BIN=\"$RISH_DIR/rish\"\n" +
+            "RISH_DEX=\"$RISH_DIR/rish_shizuku.dex\"\n" +
+            "sdk_int() { getprop ro.build.version.sdk 2>/dev/null || echo 0; }\n" +
+            "tty_doctor() {\n" +
+            "  ok=1\n" +
+            "  echo \"LauncherCtl tty-doctor\"\n" +
+            "  echo \"  rish dir: $RISH_DIR\"\n" +
+            "  if [ -x \"$RISH_BIN\" ]; then\n" +
+            "    echo \"  rish: ok ($RISH_BIN)\"\n" +
+            "  else\n" +
+            "    echo \"  rish: missing or not executable ($RISH_BIN)\"\n" +
+            "    ok=0\n" +
+            "  fi\n" +
+            "  if [ -f \"$RISH_DEX\" ]; then\n" +
+            "    echo \"  dex: ok ($RISH_DEX)\"\n" +
+            "  else\n" +
+            "    echo \"  dex: missing ($RISH_DEX)\"\n" +
+            "    ok=0\n" +
+            "  fi\n" +
+            "  sdk=$(sdk_int)\n" +
+            "  if [ \"$sdk\" -ge 34 ] && [ -f \"$RISH_DEX\" ] && [ -w \"$RISH_DEX\" ]; then\n" +
+            "    echo \"  dex perms: not compatible on Android 14+ (dex is writable)\"\n" +
+            "    ok=0\n" +
+            "  fi\n" +
+            "  if [ \"$ok\" -eq 1 ]; then\n" +
+            "    echo \"  status: healthy\"\n" +
+            "    return 0\n" +
+            "  fi\n" +
+            "  cat <<'EOF'\n" +
+            "\n" +
+            "Suggested fix commands:\n" +
+            "  mkdir -p ~/.rish\n" +
+            "  cp ~/files/.rish/rish ~/.rish/\n" +
+            "  cp ~/files/.rish/rish_shizuku.dex ~/.rish/\n" +
+            "  chmod 700 ~/.rish/rish\n" +
+            "  chmod 400 ~/.rish/rish_shizuku.dex\n" +
+            "\n" +
+            "Then run:\n" +
+            "  launcherctl tty-doctor\n" +
+            "EOF\n" +
+            "  return 1\n" +
+            "}\n" +
             "case \"$cmd\" in\n" +
             "  status)\n" +
             "    curl $CURL_COMMON -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/status\"\n" +
@@ -956,6 +999,14 @@ public class LauncherCtlApiServer {
             "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" \\\n" +
             "      --data \"{\\\"command\\\":\\\"$CMD_ESCAPED\\\"}\" \"$BASE/v1/exec\"\n" +
             "    ;;\n" +
+            "  tty-exec)\n" +
+            "    [ \"$#\" -gt 0 ] || { echo \"usage: launcherctl tty-exec <command>\" >&2; exit 2; }\n" +
+            "    tty_doctor >/dev/null || { tty_doctor >&2; exit 1; }\n" +
+            "    exec \"$RISH_BIN\" -c \"$*\"\n" +
+            "    ;;\n" +
+            "  tty-doctor)\n" +
+            "    tty_doctor\n" +
+            "    ;;\n" +
             "  permission)\n" +
             "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/privileged/request-permission\"\n" +
             "    ;;\n" +
@@ -968,7 +1019,7 @@ public class LauncherCtlApiServer {
             "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/auth/rotate\"\n" +
             "    ;;\n" +
             "  *)\n" +
-            "    echo \"usage: launcherctl {status|apps|resources|media|art|notifications|brightness [value]|volume [value] [stream]|exec|permission|lock|token rotate}\" >&2\n" +
+            "    echo \"usage: launcherctl {status|apps|resources|media|art|notifications|brightness [value]|volume [value] [stream]|exec|tty-exec|tty-doctor|permission|lock|token rotate}\" >&2\n" +
             "    exit 2\n" +
             "    ;;\n" +
             "esac\n";

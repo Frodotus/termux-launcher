@@ -63,6 +63,20 @@ Current LauncherCtl endpoints include:
 Docs and policy notes:
 - `docs/en/LauncherCtl_API.md`
 
+LauncherCtl CLI now includes interactive helpers:
+- `launcherctl tty-exec "<command>"` runs commands through `~/.rish/rish` for TTY-required tools (for example `btop`).
+- `launcherctl tty-doctor` validates `~/.rish` prerequisites and prints remediation commands.
+
+Required local files for `tty-exec`:
+- `~/.rish/rish` (executable)
+- `~/.rish/rish_shizuku.dex` (exists and should be read-only on Android 14+)
+
+Example:
+```sh
+launcherctl tty-doctor
+launcherctl tty-exec "XDG_CONFIG_HOME=/data/local/tmp/btop-config /data/local/tmp/btop/btop --force-utf"
+```
+
 ## Upstream Base
 
 - Upstream Termux app: https://github.com/termux/termux-app

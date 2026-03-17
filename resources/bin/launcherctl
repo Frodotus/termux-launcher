@@ -19,6 +19,8 @@ Commands:
   brightness [value]        Set or query screen brightness endpoint.
   volume [value] [stream]   Set or query volume endpoint.
   exec <command>            Run policy-allowed command via /v1/exec.
+  tty-exec <command>        Run interactive command via ~/.rish/rish.
+  tty-doctor                Validate local rish setup and print fixes.
   permission                Request privileged backend permission.
   lock                      Lock screen.
   token rotate              Rotate LauncherCtl API auth token.
@@ -27,6 +29,8 @@ Examples:
   launcherctl status
   launcherctl apps
   launcherctl exec "id"
+  launcherctl tty-doctor
+  launcherctl tty-exec "id"
   launcherctl volume 8 3
   launcherctl brightness 120
   launcherctl permission
@@ -40,6 +44,7 @@ Config files:
 
 Notes:
   - 'launcherctl exec' returns HTTP 403 if disabled by policy or prefix is not allowed.
+  - 'launcherctl tty-exec' requires a working ~/.rish/rish + rish_shizuku.dex pair.
   - Use: launcherctl help exec
 EOF
 }
@@ -59,6 +64,31 @@ Examples:
 EOF
 }
 
+print_tty_exec_help() {
+  cat <<'EOF'
+Usage:
+  launcherctl tty-exec "<command>"
+
+Description:
+  Executes a command through ~/.rish/rish in interactive tty mode.
+  This is intended for full-screen/interactive tools (for example btop).
+
+Examples:
+  launcherctl tty-exec "id"
+  launcherctl tty-exec "XDG_CONFIG_HOME=/data/local/tmp/btop-config /data/local/tmp/btop/btop --force-utf"
+EOF
+}
+
+print_tty_doctor_help() {
+  cat <<'EOF'
+Usage:
+  launcherctl tty-doctor
+
+Description:
+  Checks ~/.rish/rish setup and prints exact remediation commands.
+EOF
+}
+
 cmd="${1:-status}"
 
 case "$cmd" in
@@ -70,6 +100,12 @@ case "$cmd" in
         ;;
       exec)
         print_exec_help
+        ;;
+      tty-exec)
+        print_tty_exec_help
+        ;;
+      tty-doctor)
+        print_tty_doctor_help
         ;;
       *)
         echo "launcherctl: unknown help topic: $sub" >&2
@@ -96,6 +132,53 @@ CURL_COMMON="-fsS --connect-timeout 2 --max-time 10"
 shift || true
 
 json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+RISH_DIR="$HOME/.rish"
+RISH_BIN="$RISH_DIR/rish"
+RISH_DEX="$RISH_DIR/rish_shizuku.dex"
+
+sdk_int() {
+  getprop ro.build.version.sdk 2>/dev/null || echo 0
+}
+
+tty_doctor() {
+  ok=1
+  echo "LauncherCtl tty-doctor"
+  echo "  rish dir: $RISH_DIR"
+  if [ -x "$RISH_BIN" ]; then
+    echo "  rish: ok ($RISH_BIN)"
+  else
+    echo "  rish: missing or not executable ($RISH_BIN)"
+    ok=0
+  fi
+  if [ -f "$RISH_DEX" ]; then
+    echo "  dex: ok ($RISH_DEX)"
+  else
+    echo "  dex: missing ($RISH_DEX)"
+    ok=0
+  fi
+  sdk="$(sdk_int)"
+  if [ "$sdk" -ge 34 ] && [ -f "$RISH_DEX" ] && [ -w "$RISH_DEX" ]; then
+    echo "  dex perms: not compatible on Android 14+ (dex is writable)"
+    ok=0
+  fi
+  if [ "$ok" -eq 1 ]; then
+    echo "  status: healthy"
+    return 0
+  fi
+  cat <<'EOF'
+
+Suggested fix commands:
+  mkdir -p ~/.rish
+  cp ~/files/.rish/rish ~/.rish/
+  cp ~/files/.rish/rish_shizuku.dex ~/.rish/
+  chmod 700 ~/.rish/rish
+  chmod 400 ~/.rish/rish_shizuku.dex
+
+Then run:
+  launcherctl tty-doctor
+EOF
+  return 1
+}
 
 case "$cmd" in
   status)
@@ -140,6 +223,14 @@ case "$cmd" in
     CMD_ESCAPED=$(json_escape "$*")
     curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
       --data "{\"command\":\"$CMD_ESCAPED\"}" "$BASE/v1/exec"
+    ;;
+  tty-exec)
+    [ "$#" -gt 0 ] || { print_tty_exec_help >&2; exit 2; }
+    tty_doctor >/dev/null || { tty_doctor >&2; exit 1; }
+    exec "$RISH_BIN" -c "$*"
+    ;;
+  tty-doctor)
+    tty_doctor
     ;;
   permission)
     curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" "$BASE/v1/privileged/request-permission"
