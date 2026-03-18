@@ -22,6 +22,7 @@ public class AzScrubRowViewTest {
     @Test
     public void scrubMapping_isDeterministic() {
         AzScrubRowView view = new AzScrubRowView(RuntimeEnvironment.application);
+        view.setInteractionMode(AzScrubRowView.InteractionMode.INLINE_EMPHASIS_TRACK);
         view.measure(
             android.view.View.MeasureSpec.makeMeasureSpec(540, android.view.View.MeasureSpec.EXACTLY),
             android.view.View.MeasureSpec.makeMeasureSpec(48, android.view.View.MeasureSpec.EXACTLY)
