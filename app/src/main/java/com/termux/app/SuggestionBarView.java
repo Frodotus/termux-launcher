@@ -392,14 +392,10 @@ public final class SuggestionBarView extends GridLayout {
         activeAzLetter = normalized;
         activeAzSelection = Math.max(0, selectionIndex);
         cancelAzResetTimeout();
-        if (azCachedRankLetter != null && azCachedRankLetter == activeAzLetter && !azCachedRankedCandidates.isEmpty()) {
-            activeAzCandidates = azCachedRankedCandidates;
-        } else {
-            List<LauncherAppEntry> candidates = appDataProvider.getAppsForLetter(activeAzLetter);
-            activeAzCandidates = getUsageStatsStore().rankForAz(candidates);
-            azCachedRankLetter = activeAzLetter;
-            azCachedRankedCandidates = activeAzCandidates;
-        }
+        List<LauncherAppEntry> candidates = appDataProvider.getAppsForLetter(activeAzLetter);
+        activeAzCandidates = getUsageStatsStore().rankForAz(candidates);
+        azCachedRankLetter = activeAzLetter;
+        azCachedRankedCandidates = activeAzCandidates;
         if (activeAzCandidates.isEmpty()) {
             if (commit) {
                 clearAzPreview();
@@ -817,6 +813,9 @@ public final class SuggestionBarView extends GridLayout {
         if (allApps == null || allApps.isEmpty()) {
             reloadAllApps();
         }
+        if (injectedSuggestionButtons == null && appDataProvider != null && appDataProvider.hasLoadedApps()) {
+            allApps = appDataProvider.getAllApps();
+        }
 
         this.lastTerminalView = terminalView;
         this.lastInput = input == null ? "" : input;
@@ -831,14 +830,10 @@ public final class SuggestionBarView extends GridLayout {
         }
 
         if (activeAzLetter != null) {
-            if (azCachedRankLetter == null || azCachedRankLetter != activeAzLetter || azCachedRankedCandidates.isEmpty()) {
-                List<LauncherAppEntry> candidates = appDataProvider.getAppsForLetter(activeAzLetter);
-                activeAzCandidates = getUsageStatsStore().rankForAz(candidates);
-                azCachedRankLetter = activeAzLetter;
-                azCachedRankedCandidates = activeAzCandidates;
-            } else {
-                activeAzCandidates = azCachedRankedCandidates;
-            }
+            List<LauncherAppEntry> candidates = appDataProvider.getAppsForLetter(activeAzLetter);
+            activeAzCandidates = getUsageStatsStore().rankForAz(candidates);
+            azCachedRankLetter = activeAzLetter;
+            azCachedRankedCandidates = activeAzCandidates;
             renderButtons(activeAzCandidates, true);
             requestVisibleIcons(activeAzCandidates, true);
             captureAzRenderState(activeAzLetter, activeAzPageIndex, Math.max(1, maxButtonCount), activeAzCandidates);
