@@ -318,13 +318,26 @@ public final class LauncherAzGestureFxView extends View {
         }
         glow.top -= dp(10f);
         glow.bottom += dp(10f);
-        edgePaint.setColor(withAlpha(overflowGlowTintColor, 108));
+        edgePaint.setColor(withAlpha(overflowGlowTintColor, 156));
         canvas.drawRoundRect(glow, radius, radius, edgePaint);
 
         RectF innerGlow = new RectF(glow);
         innerGlow.inset(spread * 0.22f, dp(4f));
-        edgePaint.setColor(withAlpha(overflowGlowTintColor, 72));
+        edgePaint.setColor(withAlpha(overflowGlowTintColor, 118));
         canvas.drawRoundRect(innerGlow, Math.max(dp(16f), radius - dp(6f)), Math.max(dp(16f), radius - dp(6f)), edgePaint);
+
+        RectF beacon = new RectF(left, top, right, bottom);
+        float beaconInsetY = Math.max(dp(2f), (bottom - top) * 0.10f);
+        beacon.inset(0f, beaconInsetY);
+        edgePaint.setColor(withAlpha(overflowGlowTintColor, 228));
+        canvas.drawRoundRect(beacon, Math.max(dp(16f), radius * 0.68f), Math.max(dp(16f), radius * 0.68f), edgePaint);
+
+        RectF beaconCore = new RectF(beacon);
+        float coreInsetX = Math.max(dp(4f), (right - left) * 0.20f);
+        float coreInsetY = Math.max(dp(4f), beacon.height() * 0.18f);
+        beaconCore.inset(coreInsetX, coreInsetY);
+        edgeInnerPaint.setColor(withAlpha(Color.WHITE, 176));
+        canvas.drawRoundRect(beaconCore, Math.max(dp(10f), radius * 0.42f), Math.max(dp(10f), radius * 0.42f), edgeInnerPaint);
     }
 
     private void drawLetterGlassDroplet(Canvas canvas) {
