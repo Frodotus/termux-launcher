@@ -58,12 +58,12 @@ public class TermuxActivityLaunchInstrumentationTest {
     }
 
     @Test
-    public void restartReceiverIsResolvable() {
+    public void restartReceiverIsNotResolvable() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Intent intent = new Intent(TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY.ACTION_RESTART)
                 .setPackage(context.getPackageName());
 
-        assertFalse("Restart receiver should be exported for package broadcasts",
+        assertTrue("Restart receiver should no longer be exported for package broadcasts",
                 context.getPackageManager()
                         .queryBroadcastReceivers(intent, 0)
                         .isEmpty());

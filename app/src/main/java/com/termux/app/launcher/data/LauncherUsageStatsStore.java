@@ -2,6 +2,8 @@ package com.termux.app.launcher.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 
@@ -27,9 +29,12 @@ public final class LauncherUsageStatsStore {
     private static final String PREFS_KEY_USAGE_STATS_V1 = "app_launcher_az_usage_stats_v1";
     private static final String FIELD_COUNT = "count";
     private static final String FIELD_LAST = "last";
+    private static final long PERSIST_DEBOUNCE_MS = 750L;
 
     private final SharedPreferences sharedPreferences;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Map<String, UsageStat> usageByStableId = new HashMap<>();
+    private final Runnable persistRunnable = this::persist;
     private boolean loaded;
 
     public LauncherUsageStatsStore(@NonNull Context context) {
@@ -49,10 +54,12 @@ public final class LauncherUsageStatsStore {
         }
         stat.count = Math.max(0, stat.count) + 1;
         stat.lastLaunchEpochMs = System.currentTimeMillis();
-        persist();
+        mainHandler.removeCallbacks(persistRunnable);
+        mainHandler.postDelayed(persistRunnable, PERSIST_DEBOUNCE_MS);
     }
 
     public synchronized void clear() {
+        mainHandler.removeCallbacks(persistRunnable);
         usageByStableId.clear();
         loaded = true;
         sharedPreferences.edit().putString(PREFS_KEY_USAGE_STATS_V1, "").apply();
@@ -115,7 +122,7 @@ public final class LauncherUsageStatsStore {
         }
     }
 
-    private void persist() {
+    private synchronized void persist() {
         JSONObject root = new JSONObject();
         try {
             for (Map.Entry<String, UsageStat> entry : usageByStableId.entrySet()) {

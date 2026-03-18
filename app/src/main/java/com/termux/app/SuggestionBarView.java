@@ -11,11 +11,10 @@ import android.app.Activity;
 import android.app.ActivityOptions;
 import android.app.AlertDialog;
 import android.content.ClipData;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ComponentName;
 import android.content.pm.LauncherApps;
-import android.content.pm.ChangedPackages;
 import android.content.pm.PackageManager;
 import android.content.pm.ShortcutInfo;
 import android.net.Uri;
@@ -94,6 +93,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.lang.ref.WeakReference;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class SuggestionBarView extends GridLayout {
 
@@ -110,8 +111,6 @@ public final class SuggestionBarView extends GridLayout {
     private static final float MENU_SELECTION_ARM_SLOP_FACTOR = 0.8f;
 
     private List<LauncherAppEntry> allApps = new ArrayList<>();
-    private int applicationSequenceNumber = 0;
-
     private int maxButtonCount = 7;
     private float textSize = 12f;
     private boolean showIcons = true;
@@ -173,6 +172,9 @@ public final class SuggestionBarView extends GridLayout {
     private int azLastRenderSignature = 0;
     private int lastAzResolvedSlot = -1;
     @Nullable private LauncherUsageStatsStore usageStatsStore;
+    @Nullable private Runnable appCatalogChangedListener;
+    private final ExecutorService searchExecutor = Executors.newSingleThreadExecutor();
+    private int searchGeneration = 0;
     @Nullable private String azFocusedEntryKey;
     @Nullable private View azFocusedView;
     @Nullable private Animator azFocusAnimator;
@@ -293,6 +295,10 @@ public final class SuggestionBarView extends GridLayout {
         this.appDataProvider = appDataProvider;
     }
 
+    public void setAppCatalogChangedListener(@Nullable Runnable appCatalogChangedListener) {
+        this.appCatalogChangedListener = appCatalogChangedListener;
+    }
+
     private LauncherUsageStatsStore getUsageStatsStore() {
         if (usageStatsStore == null) {
             usageStatsStore = new LauncherUsageStatsStore(getContext());
@@ -318,7 +324,6 @@ public final class SuggestionBarView extends GridLayout {
 
     public void clearAppCache() {
         allApps = new ArrayList<>();
-        applicationSequenceNumber = 0;
         activeAzLetter = null;
         activeAzCandidates = new ArrayList<>();
         activeAzPageIndex = 0;
@@ -345,14 +350,28 @@ public final class SuggestionBarView extends GridLayout {
     void reloadAllApps() {
         if (injectedSuggestionButtons != null) {
             allApps = injectedToEntries(injectedSuggestionButtons);
+            if (appCatalogChangedListener != null) {
+                appCatalogChangedListener.run();
+            }
             return;
         }
         if (appDataProvider == null) {
-            appDataProvider = new LauncherAppDataProvider(getContext());
+            appDataProvider = LauncherAppDataProvider.getInstance(getContext());
+        }
+        if (!appDataProvider.hasLoadedApps()) {
+            appDataProvider.warmAsync(() -> {
+                allApps = appDataProvider.getAllApps();
+                invalidateAzRankCache();
+                if (appCatalogChangedListener != null) {
+                    appCatalogChangedListener.run();
+                }
+                reloadWithInput(lastInput, lastTerminalView);
+            });
+            return;
         }
         allApps = appDataProvider.getAllApps();
-        if (configRepository != null) {
-            pinnedItems = configRepository.loadPinnedItems();
+        if (appCatalogChangedListener != null) {
+            appCatalogChangedListener.run();
         }
         invalidateAzRankCache();
     }
@@ -360,7 +379,11 @@ public final class SuggestionBarView extends GridLayout {
     public void previewAzLetter(char letter, int selectionIndex, boolean commit) {
         cancelAzPostLaunchClear();
         if (appDataProvider == null) {
-            appDataProvider = new LauncherAppDataProvider(getContext());
+            appDataProvider = LauncherAppDataProvider.getInstance(getContext());
+        }
+        if (!appDataProvider.hasLoadedApps()) {
+            appDataProvider.warmAsync(() -> previewAzLetter(letter, selectionIndex, commit));
+            return;
         }
         char normalized = Character.toUpperCase(letter);
         if (activeAzLetter == null || activeAzLetter != normalized) {
@@ -397,6 +420,7 @@ public final class SuggestionBarView extends GridLayout {
             return;
         }
         renderButtons(activeAzCandidates, true);
+        requestVisibleIcons(activeAzCandidates, true);
         captureAzRenderState(activeAzLetter, activeAzPageIndex, Math.max(1, maxButtonCount), activeAzCandidates);
     }
 
@@ -796,6 +820,7 @@ public final class SuggestionBarView extends GridLayout {
 
         this.lastTerminalView = terminalView;
         this.lastInput = input == null ? "" : input;
+        final int requestGeneration = ++searchGeneration;
         if (activeAzLetter != null && !this.lastInput.trim().isEmpty()) {
             activeAzLetter = null;
             activeAzSelection = 0;
@@ -803,13 +828,6 @@ public final class SuggestionBarView extends GridLayout {
             activeAzCandidates = new ArrayList<>();
             invalidateAzRenderState();
             cancelAzResetTimeout();
-        }
-
-        PackageManager packageManager = getContext().getPackageManager();
-        ChangedPackages changedPackages = packageManager.getChangedPackages(applicationSequenceNumber);
-        if (changedPackages != null) {
-            applicationSequenceNumber = changedPackages.getSequenceNumber();
-            reloadAllApps();
         }
 
         if (activeAzLetter != null) {
@@ -822,19 +840,33 @@ public final class SuggestionBarView extends GridLayout {
                 activeAzCandidates = azCachedRankedCandidates;
             }
             renderButtons(activeAzCandidates, true);
+            requestVisibleIcons(activeAzCandidates, true);
             captureAzRenderState(activeAzLetter, activeAzPageIndex, Math.max(1, maxButtonCount), activeAzCandidates);
             return;
         }
 
-        List<LauncherAppEntry> suggestionEntries;
         String trimmed = lastInput.trim();
         if (!trimmed.isEmpty()) {
-            suggestionEntries = LauncherRankingEngine.filterAndRank(allApps, trimmed, searchTolerance);
-        } else {
-            suggestionEntries = buildPinnedOrDefaultSurface();
+            final List<LauncherAppEntry> snapshot = new ArrayList<>(allApps);
+            searchExecutor.execute(() -> {
+                List<LauncherAppEntry> suggestionEntries = LauncherRankingEngine.filterAndRank(snapshot, trimmed, searchTolerance);
+                post(() -> {
+                    if (requestGeneration != searchGeneration) {
+                        return;
+                    }
+                    if (!trimmed.equals(lastInput.trim()) || activeAzLetter != null) {
+                        return;
+                    }
+                    renderButtons(suggestionEntries, false);
+                    requestVisibleIcons(suggestionEntries, false);
+                });
+            });
+            return;
         }
 
+        List<LauncherAppEntry> suggestionEntries = buildPinnedOrDefaultSurface();
         renderButtons(suggestionEntries, false);
+        requestVisibleIcons(suggestionEntries, false);
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -1020,6 +1052,40 @@ public final class SuggestionBarView extends GridLayout {
             setOnLongClickListener(null);
             setOnDragListener(null);
         }
+    }
+
+    private void requestVisibleIcons(@NonNull List<LauncherAppEntry> entries, boolean azPreview) {
+        if (!showIcons || appDataProvider == null || entries.isEmpty()) {
+            return;
+        }
+
+        int visibleCount = Math.max(1, maxButtonCount);
+        int startIndex = azPreview ? activeAzPageIndex * visibleCount : 0;
+        if (startIndex >= entries.size()) {
+            startIndex = 0;
+        }
+
+        List<AppRef> refs = new ArrayList<>();
+        int endIndex = Math.min(entries.size(), startIndex + visibleCount);
+        for (int i = startIndex; i < endIndex; i++) {
+            LauncherAppEntry entry = entries.get(i);
+            if (entry == null || entry.icon != null) continue;
+            refs.add(entry.appRef);
+        }
+
+        if (refs.isEmpty()) {
+            return;
+        }
+
+        appDataProvider.loadIconsAsync(refs, () -> {
+            if (azPreview) {
+                if (activeAzLetter != null) {
+                    previewAzLetter(activeAzLetter, activeAzSelection, false);
+                }
+            } else {
+                reloadWithInput(lastInput, lastTerminalView);
+            }
+        });
     }
 
     @NonNull
@@ -1272,7 +1338,7 @@ public final class SuggestionBarView extends GridLayout {
     @Nullable
     private LauncherAppEntry resolveRef(@NonNull AppRef ref) {
         if (appDataProvider == null) {
-            appDataProvider = new LauncherAppDataProvider(getContext());
+            appDataProvider = LauncherAppDataProvider.getInstance(getContext());
         }
         if (!TextUtils.isEmpty(ref.activityName)) {
             LauncherAppEntry exact = appDataProvider.findByRef(ref);
@@ -2147,7 +2213,6 @@ public final class SuggestionBarView extends GridLayout {
         dismissShortcutsPopup();
         if (configRepository != null) {
             configRepository.savePinnedItems(pinnedItems);
-            pinnedItems = configRepository.loadPinnedItems();
         }
         reloadWithInput("", lastTerminalView);
     }

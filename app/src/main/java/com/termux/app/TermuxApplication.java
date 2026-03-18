@@ -45,8 +45,6 @@ public class TermuxApplication extends Application {
         TermuxThemeUtils.setAppNightMode(properties.getNightMode());
         // Initialize privileged backend system for enhanced operations
         initPrivilegedBackend(context);
-        // Initialize LauncherCtl local API for shell integrations
-        initLauncherCtlApiServer(context);
         // Check and create termux files directory. If failed to access it like in case of secondary
         // user or external sd card installation, then don't run files directory related code
         Error error = TermuxFileUtils.isTermuxFilesDirectoryAccessible(this, true, true);
@@ -98,14 +96,6 @@ public class TermuxApplication extends Application {
                 Logger.logErrorExtended(LOG_TAG, "Failed to initialize privileged backend: " + throwable.getMessage());
                 return null;
             });
-    }
-
-    /**
-     * Initialize LauncherCtl localhost API bridge for shell clients.
-     */
-    private void initLauncherCtlApiServer(Context context) {
-        Logger.logInfo(LOG_TAG, "Starting LauncherCtl API server...");
-        LauncherCtlApiServer.getInstance().start(context);
     }
 
     public static void setLogConfig(Context context) {

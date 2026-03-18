@@ -159,7 +159,6 @@ dependencies {
     implementation "me.xdrop:fuzzywuzzy:1.4.0"
     implementation project(":terminal-view")
     implementation project(":termux-shared")
-    implementation project(":native-entrypoint")
     // Shizuku dependencies for privileged operations
     implementation "dev.rikka.shizuku:api:13.1.5"
     implementation "dev.rikka.shizuku:provider:13.1.5"

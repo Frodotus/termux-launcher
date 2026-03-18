@@ -6,6 +6,9 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
+import android.os.Looper;
+
+import com.termux.app.launcher.data.LauncherAppDataProvider;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -17,7 +20,11 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowPackageManager;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
 
 @RunWith(RobolectricTestRunner.class)
@@ -29,6 +36,7 @@ public class SuggestionBarAppDiscoveryTest {
     private Context context;
     private ShadowPackageManager shadowPackageManager;
     private SuggestionBarView suggestionBarView;
+    private LauncherAppDataProvider appDataProvider;
 
     @Before
     public void setUp() {
@@ -36,10 +44,20 @@ public class SuggestionBarAppDiscoveryTest {
         shadowPackageManager = shadowOf(context.getPackageManager());
         suggestionBarView = new SuggestionBarView(context, null);
         suggestionBarView.setMaxButtonCount(1);
+        appDataProvider = LauncherAppDataProvider.getInstance(context);
+        appDataProvider.invalidate();
+        suggestionBarView.setAppDataProvider(appDataProvider);
+    }
+
+    private void awaitCatalogLoad() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        appDataProvider.warmAsync(latch::countDown);
+        assertTrue("Launcher app catalog should load", latch.await(2, TimeUnit.SECONDS));
+        shadowOf(Looper.getMainLooper()).idle();
     }
 
     @Test
-    public void testReloadAllApps_withRegisteredLauncherIntent_rendersAtLeastOneSuggestion() {
+    public void testReloadAllApps_withRegisteredLauncherIntent_rendersAtLeastOneSuggestion() throws Exception {
         Intent launcherIntent = new Intent(Intent.ACTION_MAIN, null);
         launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
 
@@ -53,6 +71,7 @@ public class SuggestionBarAppDiscoveryTest {
         shadowPackageManager.addResolveInfoForIntent(launcherIntent, resolveInfo);
 
         suggestionBarView.reloadAllApps();
+        awaitCatalogLoad();
         suggestionBarView.reloadWithInput("", null);
 
         int childCount = suggestionBarView.getChildCount();
@@ -61,8 +80,9 @@ public class SuggestionBarAppDiscoveryTest {
     }
 
     @Test
-    public void testReloadAllApps_withNoRegisteredApps_rendersEmptyStateHintAndDoesNotCrash() {
+    public void testReloadAllApps_withNoRegisteredApps_rendersEmptyStateHintAndDoesNotCrash() throws Exception {
         suggestionBarView.reloadAllApps();
+        awaitCatalogLoad();
         suggestionBarView.reloadWithInput("", null);
 
         int childCount = suggestionBarView.getChildCount();
@@ -71,7 +91,7 @@ public class SuggestionBarAppDiscoveryTest {
     }
 
     @Test
-    public void testReloadAllApps_withMultipleRegisteredApps_rendersMultipleSuggestions() {
+    public void testReloadAllApps_withMultipleRegisteredApps_rendersMultipleSuggestions() throws Exception {
         Intent launcherIntent = new Intent(Intent.ACTION_MAIN, null);
         launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
 
@@ -86,6 +106,7 @@ public class SuggestionBarAppDiscoveryTest {
         }
 
         suggestionBarView.reloadAllApps();
+        awaitCatalogLoad();
         suggestionBarView.reloadWithInput("", null);
 
         int childCount = suggestionBarView.getChildCount();
@@ -94,7 +115,7 @@ public class SuggestionBarAppDiscoveryTest {
     }
 
     @Test
-    public void testReloadAllApps_withDefaultButtons_emptyInput_rendersSuggestions() {
+    public void testReloadAllApps_withDefaultButtons_emptyInput_rendersSuggestions() throws Exception {
         Intent launcherIntent = new Intent(Intent.ACTION_MAIN, null);
         launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
 
@@ -108,6 +129,7 @@ public class SuggestionBarAppDiscoveryTest {
 
         suggestionBarView.setDefaultButtons(null);
         suggestionBarView.reloadAllApps();
+        awaitCatalogLoad();
         suggestionBarView.reloadWithInput("", null);
 
         int childCount = suggestionBarView.getChildCount();

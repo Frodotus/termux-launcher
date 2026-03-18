@@ -157,16 +157,6 @@
             </intent-filter>
         </activity-alias>
 
-        <activity android:name="android.app.NativeActivity" android:configChanges="orientation|screenSize">
-            <!-- Tell NativeActivity the name of our .so -->
-            <meta-data android:name="android.app.lib_name" android:value="native-entrypoint"/>
-
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-            </intent-filter>
-        </activity>
-
         <activity-alias
             android:name=".app.api.file.FileViewReceiverActivity"
             android:exported="true"
@@ -208,14 +198,6 @@
         <receiver
             android:name=".app.TermuxOpenReceiver"
             android:exported="false" />
-
-        <receiver
-            android:name=".app.TermuxRestartReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="${TERMUX_PACKAGE_NAME}.app.restart" />
-            </intent-filter>
-        </receiver>
 
         <receiver
             android:name=".app.event.SystemEventReceiver"

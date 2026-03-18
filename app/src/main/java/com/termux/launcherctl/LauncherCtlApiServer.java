@@ -19,6 +19,7 @@ import android.os.StatFs;
 import android.os.SystemClock;
 import android.provider.Settings;
 
+import com.jakewharton.processphoenix.ProcessPhoenix;
 import com.termux.privileged.PrivilegedBackend;
 import com.termux.privileged.PrivilegedBackendManager;
 import com.termux.privileged.PrivilegedPolicyStore;
@@ -90,14 +91,17 @@ public class LauncherCtlApiServer {
     private final Map<String, SimpleRateLimiter> rateLimiters = new HashMap<>();
 
     private volatile boolean running;
+    private volatile boolean starting;
     private volatile String token;
     private volatile int port;
+    private volatile JSONObject cachedAppsResponse;
     private ServerSocket serverSocket;
     private Thread acceptThread;
     private long lastCpuTotalTicks = -1L;
     private long lastCpuIdleTicks = -1L;
     private long lastCpuSampleMs = 0L;
     private Context appContext;
+    private final Map<String, byte[]> cachedAppIconPngs = new HashMap<>();
 
     private LauncherCtlApiServer() {
     }
@@ -111,6 +115,7 @@ public class LauncherCtlApiServer {
 
     public synchronized void start(Context context) {
         if (running) {
+            starting = false;
             return;
         }
 
@@ -130,7 +135,21 @@ public class LauncherCtlApiServer {
             running = false;
             Logger.logErrorExtended(LOG_TAG, "Failed to start LauncherCtl API server: " + e.getMessage());
             cleanupSocket();
+        } finally {
+            starting = false;
         }
+    }
+
+    public synchronized void ensureStartedAsync(Context context) {
+        if (running || starting) {
+            return;
+        }
+
+        starting = true;
+        Context appContext = context.getApplicationContext();
+        Thread startThread = new Thread(() -> start(appContext), "launcherctl-start");
+        startThread.setDaemon(true);
+        startThread.start();
     }
 
     /**
@@ -147,12 +166,18 @@ public class LauncherCtlApiServer {
 
     public synchronized void stop() {
         running = false;
+        starting = false;
         cleanupSocket();
         if (acceptThread != null) {
             acceptThread.interrupt();
             acceptThread = null;
         }
         clientExecutor.shutdownNow();
+    }
+
+    public synchronized void invalidatePackageCaches() {
+        cachedAppsResponse = null;
+        cachedAppIconPngs.clear();
     }
 
     private void startAcceptLoop(Context context) {
@@ -226,6 +251,8 @@ public class LauncherCtlApiServer {
                 return jsonResponse(buildNotifications());
             } else if ("POST".equals(request.method) && "/v1/exec".equals(request.path)) {
                 return jsonResponse(runExec(context, request.body));
+            } else if ("POST".equals(request.method) && "/v1/app/restart".equals(request.path)) {
+                return jsonResponse(runAppRestart(context));
             } else if ("POST".equals(request.method) && "/v1/system/brightness".equals(request.path)) {
                 return jsonResponse(runBrightness(context, request.body));
             } else if ("POST".equals(request.method) && "/v1/system/volume".equals(request.path)) {
@@ -258,17 +285,29 @@ public class LauncherCtlApiServer {
             return jsonResponse(error);
         }
 
-        byte[] pngBytes = findLauncherIconPng(context, packageName.trim());
+        String normalizedPackageName = packageName.trim();
+        byte[] pngBytes;
+        synchronized (this) {
+            pngBytes = cachedAppIconPngs.get(normalizedPackageName);
+        }
+        if (pngBytes == null || pngBytes.length == 0) {
+            pngBytes = findLauncherIconPng(context, normalizedPackageName);
+            if (pngBytes != null && pngBytes.length > 0) {
+                synchronized (this) {
+                    cachedAppIconPngs.put(normalizedPackageName, pngBytes);
+                }
+            }
+        }
         if (pngBytes == null || pngBytes.length == 0) {
             JSONObject error = jsonError("not_found", "No launcher icon found for package");
             error.put("_statusCode", 404);
-            error.put("packageName", packageName);
+            error.put("packageName", normalizedPackageName);
             return jsonResponse(error);
         }
 
         Map<String, String> headers = new HashMap<>();
         headers.put("Cache-Control", "private, max-age=300");
-        headers.put("X-Package-Name", packageName);
+        headers.put("X-Package-Name", normalizedPackageName);
         return new HttpResponse(200, "image/png", pngBytes, headers);
     }
 
@@ -289,6 +328,10 @@ public class LauncherCtlApiServer {
     }
 
     private JSONObject buildApps(Context context) throws JSONException {
+        JSONObject cached = cachedAppsResponse;
+        if (cached != null) {
+            return new JSONObject(cached.toString());
+        }
         PackageManager packageManager = context.getPackageManager();
         List<PackageInfo> packages = packageManager.getInstalledPackages(0);
         JSONArray apps = new JSONArray();
@@ -306,6 +349,9 @@ public class LauncherCtlApiServer {
         data.put("ok", true);
         data.put("count", apps.length());
         data.put("apps", apps);
+        synchronized (this) {
+            cachedAppsResponse = new JSONObject(data.toString());
+        }
         return data;
     }
 
@@ -528,6 +574,23 @@ public class LauncherCtlApiServer {
         data.put("ok", isSuccessfulCommandOutput(output));
         data.put("command", used);
         data.put("output", output == null ? "" : output);
+        return data;
+    }
+
+    private JSONObject runAppRestart(Context context) throws JSONException {
+        Intent restartIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        if (restartIntent == null) {
+            JSONObject error = jsonError("restart_unavailable", "No launch intent available for app restart");
+            error.put("_statusCode", 500);
+            return error;
+        }
+
+        restartIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        ProcessPhoenix.triggerRebirth(context, restartIntent);
+
+        JSONObject data = new JSONObject();
+        data.put("ok", true);
+        data.put("restarting", true);
         return data;
     }
 
@@ -873,6 +936,7 @@ public class LauncherCtlApiServer {
         rateLimiters.put("GET:/v1/media/art", new SimpleRateLimiter(60, 60_000));
         rateLimiters.put("GET:/v1/notifications", new SimpleRateLimiter(120, 60_000));
         rateLimiters.put("POST:/v1/exec", new SimpleRateLimiter(30, 60_000));
+        rateLimiters.put("POST:/v1/app/restart", new SimpleRateLimiter(5, 60_000));
         rateLimiters.put("POST:/v1/system/brightness", new SimpleRateLimiter(30, 60_000));
         rateLimiters.put("POST:/v1/system/volume", new SimpleRateLimiter(30, 60_000));
         rateLimiters.put("POST:/v1/screen/lock", new SimpleRateLimiter(20, 60_000));
@@ -999,6 +1063,9 @@ public class LauncherCtlApiServer {
             "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" \\\n" +
             "      --data \"{\\\"command\\\":\\\"$CMD_ESCAPED\\\"}\" \"$BASE/v1/exec\"\n" +
             "    ;;\n" +
+            "  restart)\n" +
+            "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/app/restart\"\n" +
+            "    ;;\n" +
             "  tty-exec)\n" +
             "    [ \"$#\" -gt 0 ] || { echo \"usage: launcherctl tty-exec <command>\" >&2; exit 2; }\n" +
             "    tty_doctor >/dev/null || { tty_doctor >&2; exit 1; }\n" +
@@ -1019,7 +1086,7 @@ public class LauncherCtlApiServer {
             "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/auth/rotate\"\n" +
             "    ;;\n" +
             "  *)\n" +
-            "    echo \"usage: launcherctl {status|apps|resources|media|art|notifications|brightness [value]|volume [value] [stream]|exec|tty-exec|tty-doctor|permission|lock|token rotate}\" >&2\n" +
+            "    echo \"usage: launcherctl {status|apps|resources|media|art|notifications|brightness [value]|volume [value] [stream]|exec|restart|tty-exec|tty-doctor|permission|lock|token rotate}\" >&2\n" +
             "    exit 2\n" +
             "    ;;\n" +
             "esac\n";
@@ -1057,30 +1124,24 @@ public class LauncherCtlApiServer {
             "  tel-delete-status -1 || true\n" +
             "fi\n" +
             "\n" +
-            "# Preferred path: exported app restart broadcast.\n" +
-            "if cmd package query-receivers --brief --user 0 -a com.termux.app.restart -p com.termux 2>/dev/null | grep -qv '^No receivers found$'; then\n" +
-            "  if am broadcast -a com.termux.app.restart -p com.termux >/dev/null 2>&1; then\n" +
+            "# Preferred path: authenticated LauncherCtl restart.\n" +
+            "if command -v launcherctl >/dev/null 2>&1; then\n" +
+            "  if launcherctl restart >/dev/null 2>&1; then\n" +
             "    exit 0\n" +
             "  fi\n" +
             "fi\n" +
             "\n" +
-            "# Fallbacks for older app builds without the restart receiver.\n" +
+            "# Fallbacks for older app builds or pre-init LauncherCtl state.\n" +
             "RESTART_CMD='am start -S -n com.termux/.app.TermuxActivity'\n" +
             "if $RESTART_CMD >/dev/null 2>&1; then\n" +
             "  exit 0\n" +
-            "fi\n" +
-            "\n" +
-            "if command -v launcherctl >/dev/null 2>&1; then\n" +
-            "  if launcherctl exec \"$RESTART_CMD\" >/dev/null 2>&1; then\n" +
-            "    exit 0\n" +
-            "  fi\n" +
             "fi\n" +
             "\n" +
             "if [ -x \"$HOME/.rish/rish\" ]; then\n" +
             "  exec \"$HOME/.rish/rish\" -c \"$RESTART_CMD\"\n" +
             "fi\n" +
             "\n" +
-            "echo \"launcher-restart: failed (restart broadcast and fallback launch paths failed)\" >&2\n" +
+            "echo \"launcher-restart: failed (authenticated restart and fallback launch paths failed)\" >&2\n" +
             "exit 1\n";
 
         try {
@@ -1126,7 +1187,7 @@ public class LauncherCtlApiServer {
             defaultConfig.put("allowedCommandPrefixes", prefixes);
             defaultConfig.put("help", "Set execEnabled=true and copy only needed entries from commandPrefixTemplates into allowedCommandPrefixes.");
             JSONArray templates = new JSONArray();
-            templates.put("am broadcast -a com.termux.app.restart -p com.termux");
+            templates.put("launcherctl restart");
             templates.put("am start -S -n com.termux/.app.TermuxActivity");
             templates.put("am start -n");
             templates.put("am force-stop");

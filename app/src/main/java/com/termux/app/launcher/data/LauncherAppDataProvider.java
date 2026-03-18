@@ -1,12 +1,18 @@
 package com.termux.app.launcher.data;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.drawable.Drawable;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.LruCache;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.termux.app.launcher.model.AppRef;
 import com.termux.app.launcher.model.LauncherAppEntry;
@@ -15,72 +21,238 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class LauncherAppDataProvider {
+
+    private static LauncherAppDataProvider instance;
+
     private final Context context;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final LruCache<String, Drawable> iconCache = new LruCache<>(96);
     private final List<LauncherAppEntry> cachedApps = new ArrayList<>();
     private final Map<String, LauncherAppEntry> cachedById = new LinkedHashMap<>();
     private final Map<Character, List<LauncherAppEntry>> letterBuckets = new HashMap<>();
+    private final List<Runnable> pendingRefreshCallbacks = new ArrayList<>();
+    private boolean loaded;
+    private boolean loading;
+    private int refreshGeneration;
 
-    public LauncherAppDataProvider(@NonNull Context context) {
-        this.context = context;
+    private LauncherAppDataProvider(@NonNull Context context) {
+        this.context = context.getApplicationContext();
+    }
+
+    @NonNull
+    public static synchronized LauncherAppDataProvider getInstance(@NonNull Context context) {
+        if (instance == null) {
+            instance = new LauncherAppDataProvider(context);
+        }
+        return instance;
     }
 
     public synchronized void invalidate() {
+        refreshGeneration++;
+        loading = false;
+        loaded = false;
         cachedApps.clear();
         cachedById.clear();
         letterBuckets.clear();
+        pendingRefreshCallbacks.clear();
+        iconCache.evictAll();
     }
 
+    public synchronized boolean hasLoadedApps() {
+        return loaded;
+    }
+
+    public void warmAsync(@Nullable Runnable callback) {
+        boolean shouldStartLoad = false;
+        int generationToLoad = -1;
+        synchronized (this) {
+            if (callback != null) {
+                pendingRefreshCallbacks.add(callback);
+            }
+            if (loaded) {
+                dispatchRefreshCallbacksLocked();
+                return;
+            }
+            if (!loading) {
+                loading = true;
+                generationToLoad = ++refreshGeneration;
+                shouldStartLoad = true;
+            }
+        }
+        if (!shouldStartLoad) {
+            return;
+        }
+
+        final int capturedGeneration = generationToLoad;
+        executor.execute(() -> {
+            Snapshot snapshot = loadSnapshot();
+            List<Runnable> callbacks;
+            synchronized (LauncherAppDataProvider.this) {
+                if (capturedGeneration != refreshGeneration) {
+                    loading = false;
+                    return;
+                }
+                cachedApps.clear();
+                cachedApps.addAll(snapshot.apps);
+                cachedById.clear();
+                cachedById.putAll(snapshot.byId);
+                letterBuckets.clear();
+                letterBuckets.putAll(snapshot.letterBuckets);
+                loaded = true;
+                loading = false;
+                callbacks = new ArrayList<>(pendingRefreshCallbacks);
+                pendingRefreshCallbacks.clear();
+            }
+            for (Runnable pending : callbacks) {
+                if (pending != null) {
+                    mainHandler.post(pending);
+                }
+            }
+        });
+    }
+
+    @NonNull
     public synchronized List<LauncherAppEntry> getAllApps() {
-        if (cachedApps.isEmpty()) {
-            loadAppsLocked();
-        }
-        return new ArrayList<>(cachedApps);
+        return withCachedIcons(cachedApps);
     }
 
+    @Nullable
     public synchronized LauncherAppEntry findByRef(@NonNull AppRef ref) {
-        if (cachedApps.isEmpty()) {
-            loadAppsLocked();
-        }
-        return cachedById.get(ref.stableId());
+        LauncherAppEntry entry = cachedById.get(ref.stableId());
+        return entry == null ? null : withCachedIcon(entry);
     }
 
+    @NonNull
     public synchronized List<LauncherAppEntry> getAppsForLetter(char letter) {
-        if (cachedApps.isEmpty()) {
-            loadAppsLocked();
-        }
-        char normalized = normalizeLetter(letter);
-        List<LauncherAppEntry> bucket = letterBuckets.get(normalized);
-        return bucket == null ? new ArrayList<>() : new ArrayList<>(bucket);
+        List<LauncherAppEntry> bucket = letterBuckets.get(normalizeLetter(letter));
+        return bucket == null ? new ArrayList<>() : withCachedIcons(bucket);
     }
 
-    private void loadAppsLocked() {
+    public void loadIconsAsync(@NonNull List<AppRef> refs, @Nullable Runnable callback) {
+        Set<String> missingStableIds = new LinkedHashSet<>();
+        synchronized (this) {
+            for (AppRef ref : refs) {
+                if (ref == null) continue;
+                if (iconCache.get(ref.stableId()) == null) {
+                    missingStableIds.add(ref.stableId());
+                }
+            }
+        }
+
+        if (missingStableIds.isEmpty()) {
+            return;
+        }
+
+        executor.execute(() -> {
+            PackageManager packageManager = context.getPackageManager();
+            List<LauncherAppEntry> entriesToLoad;
+            synchronized (LauncherAppDataProvider.this) {
+                entriesToLoad = new ArrayList<>(cachedApps);
+            }
+            for (LauncherAppEntry entry : entriesToLoad) {
+                if (entry == null) continue;
+                String stableId = entry.appRef.stableId();
+                if (!missingStableIds.contains(stableId)) continue;
+                Drawable icon = loadIcon(packageManager, entry.appRef);
+                if (icon != null) {
+                    synchronized (LauncherAppDataProvider.this) {
+                        iconCache.put(stableId, icon);
+                    }
+                }
+            }
+            if (callback != null) {
+                mainHandler.post(callback);
+            }
+        });
+    }
+
+    private void dispatchRefreshCallbacksLocked() {
+        List<Runnable> callbacks = new ArrayList<>(pendingRefreshCallbacks);
+        pendingRefreshCallbacks.clear();
+        for (Runnable callback : callbacks) {
+            if (callback != null) {
+                mainHandler.post(callback);
+            }
+        }
+    }
+
+    @NonNull
+    private Snapshot loadSnapshot() {
         PackageManager packageManager = context.getPackageManager();
         Intent main = new Intent(Intent.ACTION_MAIN, null);
         main.addCategory(Intent.CATEGORY_LAUNCHER);
         List<ResolveInfo> launchables = packageManager.queryIntentActivities(main, 0);
         Collections.sort(launchables, new ResolveInfo.DisplayNameComparator(packageManager));
 
+        Snapshot snapshot = new Snapshot();
         for (ResolveInfo resolveInfo : launchables) {
             ActivityInfo info = resolveInfo.activityInfo;
             if (info == null || info.packageName == null || info.name == null) continue;
-            String label = info.loadLabel(packageManager) != null ? info.loadLabel(packageManager).toString() : info.packageName;
+            CharSequence labelSequence = info.loadLabel(packageManager);
+            String label = labelSequence != null ? labelSequence.toString() : info.packageName;
             AppRef ref = new AppRef(info.packageName, info.name);
-            LauncherAppEntry entry = new LauncherAppEntry(ref, label, info.loadIcon(packageManager));
-            cachedApps.add(entry);
-            cachedById.put(ref.stableId(), entry);
+            LauncherAppEntry entry = new LauncherAppEntry(ref, label, null);
+            snapshot.apps.add(entry);
+            snapshot.byId.put(ref.stableId(), entry);
             char key = normalizeLetter(label.isEmpty() ? '#' : label.charAt(0));
-            List<LauncherAppEntry> bucket = letterBuckets.get(key);
+            List<LauncherAppEntry> bucket = snapshot.letterBuckets.get(key);
             if (bucket == null) {
                 bucket = new ArrayList<>();
-                letterBuckets.put(key, bucket);
+                snapshot.letterBuckets.put(key, bucket);
             }
             bucket.add(entry);
         }
+        return snapshot;
+    }
+
+    @Nullable
+    private Drawable loadIcon(@NonNull PackageManager packageManager, @NonNull AppRef ref) {
+        try {
+            ComponentName componentName = new ComponentName(ref.packageName, normalizeActivityName(ref));
+            return packageManager.getActivityIcon(componentName);
+        } catch (Exception ignored) {
+            try {
+                return packageManager.getApplicationIcon(ref.packageName);
+            } catch (Exception ignoredAgain) {
+                return null;
+            }
+        }
+    }
+
+    @NonNull
+    private String normalizeActivityName(@NonNull AppRef ref) {
+        if (ref.activityName.startsWith(".")) {
+            return ref.packageName + ref.activityName;
+        }
+        return ref.activityName;
+    }
+
+    @NonNull
+    private List<LauncherAppEntry> withCachedIcons(@NonNull List<LauncherAppEntry> source) {
+        List<LauncherAppEntry> out = new ArrayList<>(source.size());
+        for (LauncherAppEntry entry : source) {
+            out.add(withCachedIcon(entry));
+        }
+        return out;
+    }
+
+    @NonNull
+    private LauncherAppEntry withCachedIcon(@NonNull LauncherAppEntry entry) {
+        Drawable icon = iconCache.get(entry.appRef.stableId());
+        if (icon == entry.icon) {
+            return entry;
+        }
+        return new LauncherAppEntry(entry.appRef, entry.label, icon);
     }
 
     private static char normalizeLetter(char c) {
@@ -95,5 +267,10 @@ public final class LauncherAppDataProvider {
         if (label.isEmpty()) return '#';
         return normalizeLetter(label.toUpperCase(Locale.US).charAt(0));
     }
-}
 
+    private static final class Snapshot {
+        final List<LauncherAppEntry> apps = new ArrayList<>();
+        final Map<String, LauncherAppEntry> byId = new LinkedHashMap<>();
+        final Map<Character, List<LauncherAppEntry>> letterBuckets = new HashMap<>();
+    }
+}

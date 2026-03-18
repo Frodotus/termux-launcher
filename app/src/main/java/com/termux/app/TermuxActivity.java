@@ -463,6 +463,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         registerTermuxActivityBroadcastReceiver();
         registerPackageChangeReceiver();
         registerLauncherAppsCallback();
+        getWindow().getDecorView().post(() -> LauncherCtlApiServer.getInstance().ensureStartedAsync(getApplicationContext()));
         scheduleSuggestionBarPackageRefresh(true);
     }
 
@@ -913,7 +914,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (mPreferences != null) {
             if (mLauncherAppDataProvider == null) {
-                mLauncherAppDataProvider = new LauncherAppDataProvider(this);
+                mLauncherAppDataProvider = LauncherAppDataProvider.getInstance(this);
             }
             if (mLauncherConfigRepository == null) {
                 mLauncherConfigRepository = new LauncherConfigRepository(mPreferences);
@@ -946,6 +947,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mSuggestionBarView = (SuggestionBarView) inflater.inflate(R.layout.suggestion_bar, collection, false);
                 mSuggestionBarView.setAppDataProvider(mLauncherAppDataProvider);
                 mSuggestionBarView.setConfigRepository(mLauncherConfigRepository);
+                mSuggestionBarView.setAppCatalogChangedListener(TermuxActivity.this::syncAzScrubLettersAndTint);
                 applySuggestionBarPreferences();
                 mSuggestionBarView.reload();
                 mTermuxTerminalViewClient.setSuggestionBarCallback(suggestionBarCallback);
@@ -1000,7 +1002,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
         if (mLauncherAppDataProvider == null) {
-            mLauncherAppDataProvider = new LauncherAppDataProvider(this);
+            mLauncherAppDataProvider = LauncherAppDataProvider.getInstance(this);
         }
         if (mLauncherConfigRepository == null) {
             mLauncherConfigRepository = new LauncherConfigRepository(mPreferences);
@@ -1022,6 +1024,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSuggestionBarView.setInheritedTintColor(ContextCompat.getColor(this, R.color.background_accent));
         mSuggestionBarView.setAppDataProvider(mLauncherAppDataProvider);
         mSuggestionBarView.setConfigRepository(mLauncherConfigRepository);
+        mSuggestionBarView.setAppCatalogChangedListener(this::syncAzScrubLettersAndTint);
         if (mLauncherTransitionController != null) {
             mLauncherTransitionController.onAnimationPreferenceUpdated();
         }
@@ -2231,6 +2234,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void refreshSuggestionBarFromPackageState() {
+        LauncherCtlApiServer.getInstance().invalidatePackageCaches();
         if (mSuggestionBarView == null) {
             return;
         }

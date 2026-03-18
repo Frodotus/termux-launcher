@@ -19,6 +19,7 @@ Commands:
   brightness [value]        Set or query screen brightness endpoint.
   volume [value] [stream]   Set or query volume endpoint.
   exec <command>            Run policy-allowed command via /v1/exec.
+  restart                   Restart the launcher through authenticated API.
   tty-exec <command>        Run interactive command via ~/.rish/rish.
   tty-doctor                Validate local rish setup and print fixes.
   permission                Request privileged backend permission.
@@ -29,6 +30,7 @@ Examples:
   launcherctl status
   launcherctl apps
   launcherctl exec "id"
+  launcherctl restart
   launcherctl tty-doctor
   launcherctl tty-exec "id"
   launcherctl volume 8 3
@@ -223,6 +225,9 @@ case "$cmd" in
     CMD_ESCAPED=$(json_escape "$*")
     curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
       --data "{\"command\":\"$CMD_ESCAPED\"}" "$BASE/v1/exec"
+    ;;
+  restart)
+    curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" "$BASE/v1/app/restart"
     ;;
   tty-exec)
     [ "$#" -gt 0 ] || { print_tty_exec_help >&2; exit 2; }
