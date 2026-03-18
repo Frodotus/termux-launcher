@@ -4149,8 +4149,10 @@ public final class SuggestionBarView extends GridLayout {
         int end = Math.min(rankedCandidates.size(), start + perPage);
         int signature = 17;
         for (int i = start; i < end; i++) {
-            String key = stableEntryKey(rankedCandidates.get(i));
+            LauncherAppEntry entry = rankedCandidates.get(i);
+            String key = stableEntryKey(entry);
             signature = (31 * signature) + (key == null ? 0 : key.hashCode());
+            signature = (31 * signature) + (entry.icon != null ? 1 : 0);
         }
         signature = (31 * signature) + start;
         signature = (31 * signature) + end;
