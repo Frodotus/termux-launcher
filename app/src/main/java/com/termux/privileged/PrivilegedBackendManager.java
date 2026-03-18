@@ -41,7 +41,7 @@ public class PrivilegedBackendManager {
         UNAVAILABLE
     }
 
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final Object stateLock = new Object();
     private BackendState backendState = BackendState.UNINITIALIZED;
     private StatusReason statusReason = StatusReason.UNAVAILABLE;
@@ -55,17 +55,17 @@ public class PrivilegedBackendManager {
     private final ShizukuBackend.Callback shizukuCallback = new ShizukuBackend.Callback() {
         @Override
         public void onPermissionResult(boolean granted) {
-            executorService.submit(() -> handleShizukuPermissionResult(granted));
+            getExecutorService().submit(() -> handleShizukuPermissionResult(granted));
         }
 
         @Override
         public void onBinderDead() {
-            executorService.submit(PrivilegedBackendManager.this::handleShizukuBinderDeath);
+            getExecutorService().submit(PrivilegedBackendManager.this::handleShizukuBinderDeath);
         }
 
         @Override
         public void onBinderReceived() {
-            executorService.submit(PrivilegedBackendManager.this::handleShizukuBinderReceived);
+            getExecutorService().submit(PrivilegedBackendManager.this::handleShizukuBinderReceived);
         }
     };
 
@@ -84,14 +84,14 @@ public class PrivilegedBackendManager {
         this.applicationContext = context.getApplicationContext();
         updateState(BackendState.INITIALIZING, StatusReason.UNAVAILABLE, "Choosing backend");
 
-        return CompletableFuture.supplyAsync(this::reselectBackendInternal, executorService);
+        return CompletableFuture.supplyAsync(this::reselectBackendInternal, getExecutorService());
     }
 
     public CompletableFuture<Boolean> reselectBackend() {
         if (applicationContext == null) {
             return CompletableFuture.completedFuture(false);
         }
-        return CompletableFuture.supplyAsync(this::reselectBackendInternal, executorService);
+        return CompletableFuture.supplyAsync(this::reselectBackendInternal, getExecutorService());
     }
 
     private boolean reselectBackendInternal() {
@@ -378,6 +378,13 @@ public class PrivilegedBackendManager {
         executorService.shutdown();
         applyBackend(new NoOpBackend(), BackendState.UNAVAILABLE, StatusReason.UNAVAILABLE,
             "Resources cleaned up");
+    }
+
+    private synchronized ExecutorService getExecutorService() {
+        if (executorService.isShutdown() || executorService.isTerminated()) {
+            executorService = Executors.newSingleThreadExecutor();
+        }
+        return executorService;
     }
 
     private boolean isMasterEnabled() {
