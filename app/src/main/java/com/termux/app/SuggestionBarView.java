@@ -392,10 +392,7 @@ public final class SuggestionBarView extends GridLayout {
         activeAzLetter = normalized;
         activeAzSelection = Math.max(0, selectionIndex);
         cancelAzResetTimeout();
-        List<LauncherAppEntry> candidates = appDataProvider.getAppsForLetter(activeAzLetter);
-        activeAzCandidates = getUsageStatsStore().rankForAz(candidates);
-        azCachedRankLetter = activeAzLetter;
-        azCachedRankedCandidates = activeAzCandidates;
+        refreshActiveAzCandidates(activeAzLetter);
         if (activeAzCandidates.isEmpty()) {
             if (commit) {
                 clearAzPreview();
@@ -3882,7 +3879,11 @@ public final class SuggestionBarView extends GridLayout {
                 public void onAnimationEnd(Animator animation) {
                     setListenerSafe(null);
                     activeAzPageIndex = targetPage;
+                    if (activeAzLetter != null) {
+                        refreshActiveAzCandidates(activeAzLetter);
+                    }
                     renderButtons(activeAzCandidates, true);
+                    requestVisibleIcons(activeAzCandidates, true);
                     setTranslationX(direction * travel * 0.50f);
                     setAlpha(0.88f);
                     animate()
@@ -4107,6 +4108,16 @@ public final class SuggestionBarView extends GridLayout {
 
     private static float lerp(float start, float end, float t) {
         return start + ((end - start) * t);
+    }
+
+    private void refreshActiveAzCandidates(char letter) {
+        if (appDataProvider == null) {
+            return;
+        }
+        List<LauncherAppEntry> candidates = appDataProvider.getAppsForLetter(letter);
+        activeAzCandidates = getUsageStatsStore().rankForAz(candidates);
+        azCachedRankLetter = letter;
+        azCachedRankedCandidates = activeAzCandidates;
     }
 
     private static float clamp01(float value) {
