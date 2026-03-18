@@ -20,9 +20,6 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowPackageManager;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.robolectric.Shadows.shadowOf;
@@ -50,10 +47,14 @@ public class SuggestionBarAppDiscoveryTest {
     }
 
     private void awaitCatalogLoad() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
-        appDataProvider.warmAsync(latch::countDown);
-        assertTrue("Launcher app catalog should load", latch.await(2, TimeUnit.SECONDS));
+        long deadline = System.nanoTime() + 2_000_000_000L;
+        appDataProvider.warmAsync(null);
+        while (!appDataProvider.hasLoadedApps() && System.nanoTime() < deadline) {
+            shadowOf(Looper.getMainLooper()).idle();
+            Thread.sleep(10L);
+        }
         shadowOf(Looper.getMainLooper()).idle();
+        assertTrue("Launcher app catalog should load", appDataProvider.hasLoadedApps());
     }
 
     @Test

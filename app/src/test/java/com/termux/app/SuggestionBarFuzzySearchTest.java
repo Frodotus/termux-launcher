@@ -3,6 +3,7 @@ package com.termux.app;
 import android.app.Application;
 import android.content.Context;
 import android.os.Build;
+import android.os.Looper;
 import android.widget.Button;
 
 import org.junit.Before;
@@ -24,6 +25,7 @@ import me.xdrop.fuzzywuzzy.FuzzySearch;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.robolectric.Shadows.shadowOf;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = {Build.VERSION_CODES.P}, application = Application.class)
@@ -39,7 +41,7 @@ public class SuggestionBarFuzzySearchTest {
     }
 
     @Test
-    public void testPrefixMode_keepsStableOrder() {
+    public void testPrefixMode_keepsStableOrder() throws Exception {
         SuggestionBarView suggestionBarView = new SuggestionBarView(context, null);
         suggestionBarView.setShowIcons(false);
 
@@ -52,6 +54,7 @@ public class SuggestionBarFuzzySearchTest {
         suggestionBarView.setMaxButtonCount(2);
 
         suggestionBarView.reloadWithInput("al", null);
+        awaitChildCount(suggestionBarView, 2);
 
         assertEquals(2, suggestionBarView.getChildCount());
         Button first = (Button) suggestionBarView.getChildAt(0);
@@ -62,7 +65,7 @@ public class SuggestionBarFuzzySearchTest {
     }
 
     @Test
-    public void testFuzzyMode_ranksByRatioAndRespectsTolerance() {
+    public void testFuzzyMode_ranksByRatioAndRespectsTolerance() throws Exception {
         SuggestionBarView suggestionBarView = new SuggestionBarView(context, null);
         suggestionBarView.setShowIcons(false);
         suggestionBarView.setSearchTolerance(70);
@@ -79,12 +82,22 @@ public class SuggestionBarFuzzySearchTest {
         suggestionBarView.setMaxButtonCount(expected.size());
 
         suggestionBarView.reloadWithInput("termx", null);
+        awaitChildCount(suggestionBarView, expected.size());
 
         assertEquals(expected.size(), suggestionBarView.getChildCount());
         for (int i = 0; i < expected.size(); i++) {
             Button child = (Button) suggestionBarView.getChildAt(i);
             assertEquals(expected.get(i).getText(), child.getText().toString());
         }
+    }
+
+    private static void awaitChildCount(SuggestionBarView suggestionBarView, int expectedCount) throws Exception {
+        long deadline = System.nanoTime() + 2_000_000_000L;
+        while (suggestionBarView.getChildCount() != expectedCount && System.nanoTime() < deadline) {
+            shadowOf(Looper.getMainLooper()).idle();
+            Thread.sleep(10L);
+        }
+        shadowOf(Looper.getMainLooper()).idle();
     }
 
     private static List<TestButton> buildExpectedFuzzyOrder(List<TestButton> buttons, String input, int tolerance) {
