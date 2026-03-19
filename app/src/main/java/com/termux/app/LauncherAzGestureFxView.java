@@ -285,15 +285,11 @@ public final class LauncherAzGestureFxView extends View {
         if (shouldDrawInteractionOverflow) {
             if (renderLayer == RenderLayer.UNDERLAY) {
                 drawEdgeGlowAmbient(canvas);
-            } else {
-                drawEdgeGlowBeacon(canvas);
             }
-            postInvalidateOnAnimation();
         }
         if (shouldDrawAzOverflow && renderLayer == RenderLayer.OVERLAY) {
             drawGlassEdgeCapsules(canvas);
             drawPageIndicators(canvas);
-            postInvalidateOnAnimation();
         }
     }
 
@@ -335,45 +331,6 @@ public final class LauncherAzGestureFxView extends View {
         innerGlow.inset(spread * 0.30f, dp(6f));
         edgePaint.setColor(withAlpha(overflowGlowTintColor, 44));
         canvas.drawRoundRect(innerGlow, Math.max(dp(16f), radius - dp(6f)), Math.max(dp(16f), radius - dp(6f)), edgePaint);
-    }
-
-    private void drawEdgeGlowBeacon(Canvas canvas) {
-        if (appsRowRawBounds.isEmpty()) {
-            return;
-        }
-        float top = appsRowRawBounds.top - locationOnScreen[1];
-        float bottom = appsRowRawBounds.bottom - locationOnScreen[1];
-
-        float edgeWidth = Math.max(dp(24f), getWidth() * 0.062f);
-        float radius = Math.max(dp(18f), Math.max(dp(34f), bottom - top) * 0.30f);
-        if (interactionCanPageLeft) {
-            drawEdgeGlowBeacon(canvas, 0f, top, edgeWidth, bottom, radius, false);
-        }
-        if (interactionCanPageRight) {
-            drawEdgeGlowBeacon(canvas, getWidth() - edgeWidth, top, getWidth(), bottom, radius, true);
-        }
-    }
-
-    private void drawEdgeGlowBeacon(Canvas canvas, float left, float top, float right, float bottom, float radius, boolean rightEdge) {
-        RectF beacon = new RectF(left, top, right, bottom);
-        float beaconInsetY = Math.max(dp(4f), (bottom - top) * 0.14f);
-        float beaconInsetX = Math.max(dp(2f), (right - left) * 0.16f);
-        if (rightEdge) {
-            beacon.left = Math.max(left, right - Math.max(dp(9f), (right - left) * 0.28f));
-        } else {
-            beacon.right = Math.min(right, left + Math.max(dp(9f), (right - left) * 0.28f));
-        }
-        beacon.inset(beaconInsetX, beaconInsetY);
-        edgePaint.setColor(withAlpha(overflowGlowTintColor, 176));
-        canvas.drawRoundRect(beacon, Math.max(dp(16f), radius * 0.68f), Math.max(dp(16f), radius * 0.68f), edgePaint);
-
-        RectF beaconCore = new RectF(beacon);
-        float coreInsetX = Math.max(dp(1.2f), beacon.width() * 0.18f);
-        float coreInsetY = Math.max(dp(5f), beacon.height() * 0.20f);
-        beaconCore.inset(coreInsetX, coreInsetY);
-        edgeInnerPaint.setColor(withAlpha(Color.WHITE, 184));
-        canvas.drawRoundRect(beaconCore, Math.max(dp(10f), radius * 0.42f), Math.max(dp(10f), radius * 0.42f), edgeInnerPaint);
-        drawAnimatedBloomEdge(canvas, beacon, rightEdge);
     }
 
     private void drawLetterGlassDroplet(Canvas canvas) {
@@ -515,81 +472,7 @@ public final class LauncherAzGestureFxView extends View {
     }
 
     private void drawGlassEdgeCapsules(Canvas canvas) {
-        float width = getWidth();
-        float top = 0f;
-        float bottom = getHeight();
-        if (!appsRowRawBounds.isEmpty()) {
-            top = appsRowRawBounds.top - locationOnScreen[1];
-            bottom = appsRowRawBounds.bottom - locationOnScreen[1];
-        }
-        float height = Math.max(dp(18f), bottom - top);
-        boolean passiveLetterState = interactionMode == InteractionMode.LETTER_TRACK || !dragActive;
-        float capsuleW = passiveLetterState
-            ? Math.max(dp(7f), width * 0.018f)
-            : Math.max(dp(9f), width * 0.024f);
-        float capsuleH = passiveLetterState
-            ? Math.max(dp(18f), height * 0.44f)
-            : Math.max(dp(20f), height * 0.54f);
-        float cy = top + (height * 0.5f);
-        float radius = passiveLetterState ? capsuleW * 0.74f : capsuleW * 0.56f;
-        float inset = passiveLetterState ? dp(4f) : dp(6f);
-        float baseIntensity = passiveLetterState ? 0.12f : 0.17f;
-        float proximityGain = passiveLetterState ? 0.10f : 0.26f;
-
-        if (canPageLeft) {
-            float intensity = baseIntensity + (proximityGain * edgeProximityLeft);
-            float left = inset;
-            float capsuleTop = cy - (capsuleH * 0.5f);
-            float right = left + capsuleW;
-            float capsuleBottom = cy + (capsuleH * 0.5f);
-            drawEdgeCapsule(canvas, left, capsuleTop, right, capsuleBottom, radius, intensity);
-        }
-
-        if (canPageRight) {
-            float intensity = baseIntensity + (proximityGain * edgeProximityRight);
-            float right = width - inset;
-            float left = right - capsuleW;
-            float capsuleTop = cy - (capsuleH * 0.5f);
-            float capsuleBottom = cy + (capsuleH * 0.5f);
-            drawEdgeCapsule(canvas, left, capsuleTop, right, capsuleBottom, radius, intensity);
-        }
-    }
-
-    private void drawEdgeCapsule(Canvas canvas, float left, float top, float right, float bottom, float radius, float intensity) {
-        RectF glow = new RectF(left, top, right, bottom);
-        float spreadX = Math.max(dp(8f), (right - left) * 1.2f);
-        float spreadY = Math.max(dp(4f), (bottom - top) * 0.20f);
-        boolean rightEdge = right >= (getWidth() * 0.5f);
-        if (rightEdge) {
-            glow.left -= spreadX * 0.22f;
-            glow.right += spreadX;
-        } else {
-            glow.left -= spreadX;
-            glow.right += spreadX * 0.22f;
-        }
-        glow.top -= spreadY;
-        glow.bottom += spreadY;
-        edgePaint.setColor(withAlpha(edgeTintColor, (int) (54f * intensity)));
-        canvas.drawRoundRect(glow, radius + spreadY, radius + spreadY, edgePaint);
-
-        RectF glowCore = new RectF(glow);
-        glowCore.inset(spreadX * 0.34f, spreadY * 0.26f);
-        edgePaint.setColor(withAlpha(edgeTintColor, (int) (36f * intensity)));
-        canvas.drawRoundRect(glowCore, radius + (spreadY * 0.5f), radius + (spreadY * 0.5f), edgePaint);
-
-        tmpRect.set(left, top, right, bottom);
-        edgePaint.setColor(withAlpha(edgeTintColor, (int) (124f * intensity)));
-        canvas.drawRoundRect(tmpRect, radius, radius, edgePaint);
-
-        edgeInnerPaint.setColor(withAlpha(Color.WHITE, (int) (64f * intensity)));
-        float pad = Math.max(dp(1.6f), (right - left) * 0.14f);
-        RectF inner = new RectF(tmpRect);
-        inner.inset(pad, pad * 1.2f);
-        canvas.drawRoundRect(inner, Math.max(dp(7f), radius - pad), Math.max(dp(7f), radius - pad), edgeInnerPaint);
-
-        glassStrokePaint.setStrokeWidth(dp(1.0f));
-        glassStrokePaint.setColor(withAlpha(Color.WHITE, (int) (88f * intensity)));
-        canvas.drawRoundRect(tmpRect, radius, radius, glassStrokePaint);
+        // Side capsules removed to keep the overflow affordance clean.
     }
 
     private void drawPageIndicators(Canvas canvas) {
@@ -607,8 +490,7 @@ public final class LauncherAzGestureFxView extends View {
             : rowBottom + dp(2.2f);
         float lineHeight = dp(2f);
         float segmentGap = dp(5f);
-        float sideInset = dp(14f);
-        float totalWidth = Math.max(dp(120f), getWidth() - (sideInset * 2f));
+        float totalWidth = clamp(getWidth() * 0.34f, dp(120f), dp(220f));
         float segmentWidth = (totalWidth - (segmentGap * Math.max(0, pageCount - 1))) / Math.max(1, pageCount);
         float left = (getWidth() - totalWidth) * 0.5f;
         int backgroundLineColor = withAlpha(boostColor(glassTintColor, 0.94f, 0.72f), 118);
@@ -627,37 +509,6 @@ public final class LauncherAzGestureFxView extends View {
             }
             left += segmentWidth + segmentGap;
         }
-    }
-
-    private void drawAnimatedBloomEdge(Canvas canvas, @NonNull RectF beacon, boolean rightEdge) {
-        float pulse = breathe(0.56f, 1.0f, 1900L);
-        float edgeWidth = lerp(dp(0.8f), dp(1.9f), pulse);
-        RectF shimmer = new RectF(beacon);
-        if (rightEdge) {
-            shimmer.right = beacon.left + edgeWidth;
-            shimmer.left = beacon.left - dp(0.3f);
-        } else {
-            shimmer.left = beacon.right - edgeWidth;
-            shimmer.right = beacon.right + dp(0.3f);
-        }
-        shimmer.top += dp(2f);
-        shimmer.bottom -= dp(2f);
-        edgePaint.setColor(withAlpha(Color.WHITE, (int) (138f * pulse)));
-        canvas.drawRoundRect(shimmer, edgeWidth, edgeWidth, edgePaint);
-
-        RectF core = new RectF(shimmer);
-        core.inset(dp(0.2f), dp(1.2f));
-        edgeInnerPaint.setColor(withAlpha(overflowGlowTintColor, (int) (152f * pulse)));
-        canvas.drawRoundRect(core, Math.max(dp(0.6f), core.width() * 0.5f), Math.max(dp(0.6f), core.width() * 0.5f), edgeInnerPaint);
-    }
-
-    private float breathe(float min, float max, long durationMs) {
-        if (durationMs <= 0L) {
-            return max;
-        }
-        float phase = (SystemClock.uptimeMillis() % durationMs) / (float) durationMs;
-        float wave = 0.5f + (0.5f * (float) Math.sin((phase * (float) (Math.PI * 2d)) - (float) (Math.PI / 2d)));
-        return min + ((max - min) * wave);
     }
 
     private void drawLaunchGlassBloom(Canvas canvas) {
