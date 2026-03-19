@@ -3902,13 +3902,24 @@ public final class SuggestionBarView extends GridLayout {
 
         pageSwitchAnimating = true;
         final int direction = pageDelta > 0 ? 1 : -1;
-        final float travel = Math.max(dp(18), getWidth() * 0.20f);
-        final long duration = computePageAnimDuration(velocityPxPerSec);
+        final float travel = Math.max(dp(10), getWidth() * 0.08f);
+        final long duration = clamp((int) (computePageAnimDuration(velocityPxPerSec) * 0.78f), 180, 300);
+        final long phaseDuration = Math.max(110L, duration / 2L);
+        final float turnDegrees = 15f;
+        final float phaseOneRotation = -direction * turnDegrees;
+        final float phaseTwoRotation = direction * turnDegrees * 0.62f;
+
+        setPivotX(getWidth() * 0.5f);
+        setPivotY(getHeight() * 0.5f);
+        setCameraDistance(Math.max(getResources().getDisplayMetrics().density * 6000f, getWidth() * 14f));
 
         animate()
-            .translationX(-direction * travel * 0.55f)
+            .translationX(-direction * travel)
+            .rotationY(phaseOneRotation)
+            .scaleX(0.982f)
+            .scaleY(0.992f)
             .alpha(0.90f)
-            .setDuration(duration)
+            .setDuration(phaseDuration)
             .setInterpolator(new DecelerateInterpolator())
             .setListener(new AnimatorListenerAdapter() {
                 @Override
@@ -3920,18 +3931,28 @@ public final class SuggestionBarView extends GridLayout {
                     }
                     renderButtons(activeAzCandidates, true);
                     requestVisibleIcons(activeAzCandidates, true);
-                    setTranslationX(direction * travel * 0.50f);
-                    setAlpha(0.88f);
+                    setTranslationX(direction * travel * 0.68f);
+                    setRotationY(phaseTwoRotation);
+                    setScaleX(0.984f);
+                    setScaleY(0.994f);
+                    setAlpha(0.92f);
                     animate()
                         .translationX(0f)
+                        .rotationY(0f)
+                        .scaleX(1f)
+                        .scaleY(1f)
                         .alpha(1f)
-                        .setDuration(Math.max(180, duration + 80))
+                        .setDuration(phaseDuration)
                         .setInterpolator(new DecelerateInterpolator())
                         .setListener(new AnimatorListenerAdapter() {
                             @Override
                             public void onAnimationEnd(Animator animation) {
                                 setListenerSafe(null);
                                 pageSwitchAnimating = false;
+                                setRotationY(0f);
+                                setScaleX(1f);
+                                setScaleY(1f);
+                                setTranslationX(0f);
                                 if (activeAzLetter != null) {
                                     captureAzRenderState(activeAzLetter, activeAzPageIndex, Math.max(1, maxButtonCount), activeAzCandidates);
                                 }

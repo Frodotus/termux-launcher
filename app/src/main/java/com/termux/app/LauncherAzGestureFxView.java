@@ -299,6 +299,8 @@ public final class LauncherAzGestureFxView extends View {
         }
         float top = appsRowRawBounds.top - locationOnScreen[1];
         float bottom = appsRowRawBounds.bottom - locationOnScreen[1];
+        int saveCount = canvas.save();
+        canvas.clipRect(0f, top, getWidth(), bottom);
 
         float glowHeight = Math.max(dp(34f), bottom - top);
         float edgeWidth = Math.max(dp(24f), getWidth() * 0.062f);
@@ -311,6 +313,7 @@ public final class LauncherAzGestureFxView extends View {
         if (interactionCanPageRight) {
             drawEdgeGlowAmbient(canvas, getWidth() - edgeWidth, top, getWidth(), bottom, radius, spread, true);
         }
+        canvas.restoreToCount(saveCount);
     }
 
     private void drawEdgeGlowAmbient(Canvas canvas, float left, float top, float right, float bottom, float radius, float spread, boolean rightEdge) {
