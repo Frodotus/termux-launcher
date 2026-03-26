@@ -4,7 +4,8 @@ import android.app.Application;
 import android.content.Context;
 import android.os.Build;
 import android.os.Looper;
-import android.widget.Button;
+import android.view.View;
+import android.view.ViewGroup;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -57,9 +58,9 @@ public class SuggestionBarFuzzySearchTest {
         awaitChildCount(suggestionBarView, 2);
 
         assertEquals(2, suggestionBarView.getChildCount());
-        Button first = (Button) suggestionBarView.getChildAt(0);
-        Button second = (Button) suggestionBarView.getChildAt(1);
-        List<String> texts = Arrays.asList(first.getText().toString(), second.getText().toString());
+        String first = findContentDescription(suggestionBarView.getChildAt(0));
+        String second = findContentDescription(suggestionBarView.getChildAt(1));
+        List<String> texts = Arrays.asList(first, second);
         assertTrue(texts.contains("alpine"));
         assertTrue(texts.contains("alpha"));
     }
@@ -86,8 +87,8 @@ public class SuggestionBarFuzzySearchTest {
 
         assertEquals(expected.size(), suggestionBarView.getChildCount());
         for (int i = 0; i < expected.size(); i++) {
-            Button child = (Button) suggestionBarView.getChildAt(i);
-            assertEquals(expected.get(i).getText(), child.getText().toString());
+            String label = findContentDescription(suggestionBarView.getChildAt(i));
+            assertEquals(expected.get(i).getText(), label);
         }
     }
 
@@ -124,6 +125,25 @@ public class SuggestionBarFuzzySearchTest {
             }
         });
         return expected;
+    }
+
+    private static String findContentDescription(View view) {
+        if (view == null) return null;
+        CharSequence direct = view.getContentDescription();
+        if (direct != null && direct.length() > 0) {
+            return direct.toString();
+        }
+        if (!(view instanceof ViewGroup)) {
+            return null;
+        }
+        ViewGroup group = (ViewGroup) view;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            String nested = findContentDescription(group.getChildAt(i));
+            if (nested != null) {
+                return nested;
+            }
+        }
+        return null;
     }
 
     private static final class TestButton implements SuggestionBarButton {
