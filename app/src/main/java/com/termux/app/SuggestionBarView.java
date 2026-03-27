@@ -360,6 +360,7 @@ public final class SuggestionBarView extends GridLayout {
     void reloadAllApps() {
         if (injectedSuggestionButtons != null) {
             allApps = injectedToEntries(injectedSuggestionButtons);
+            pruneUnavailablePinnedItems();
             if (appCatalogChangedListener != null) {
                 appCatalogChangedListener.run();
             }
@@ -403,29 +404,47 @@ public final class SuggestionBarView extends GridLayout {
         for (PinnedItem item : pinnedItems) {
             if (item instanceof PinnedAppItem) {
                 PinnedAppItem appItem = (PinnedAppItem) item;
-                if (resolveRef(appItem.appRef) != null) {
-                    cleaned.add(item);
-                } else {
+                AppRef normalizedRef = resolveNormalizedPinnedRef(appItem.appRef);
+                if (normalizedRef == null) {
+                    changed = true;
+                    continue;
+                }
+                if (!normalizedRef.stableId().equals(appItem.appRef.stableId())) {
                     changed = true;
                 }
+                cleaned.add(new PinnedAppItem(normalizedRef));
                 continue;
             }
 
             if (item instanceof PinnedFolderItem) {
                 PinnedFolderItem folder = (PinnedFolderItem) clonePinnedItem(item);
                 int before = folder.apps.size();
+                List<AppRef> normalizedApps = new ArrayList<>();
                 for (int i = folder.apps.size() - 1; i >= 0; i--) {
-                    if (resolveRef(folder.apps.get(i)) == null) {
-                        folder.apps.remove(i);
+                    AppRef normalizedRef = resolveNormalizedPinnedRef(folder.apps.get(i));
+                    if (normalizedRef == null) {
+                        changed = true;
+                        continue;
                     }
+                    normalizedApps.add(0, normalizedRef);
                 }
-                if (folder.apps.isEmpty()) {
+                if (normalizedApps.isEmpty()) {
                     changed = true;
                     continue;
                 }
-                if (folder.apps.size() != before) {
+                if (normalizedApps.size() != before) {
                     changed = true;
                 }
+                for (int i = 0; i < normalizedApps.size(); i++) {
+                    AppRef oldRef = folder.apps.get(i);
+                    AppRef newRef = normalizedApps.get(i);
+                    if (!oldRef.stableId().equals(newRef.stableId())) {
+                        changed = true;
+                        break;
+                    }
+                }
+                folder.apps.clear();
+                folder.apps.addAll(normalizedApps);
                 cleaned.add(folder);
                 continue;
             }
@@ -440,6 +459,15 @@ public final class SuggestionBarView extends GridLayout {
         pinnedItems = cleaned;
         configRepository.savePinnedItems(pinnedItems);
         pinnedPageIndex = clamp(pinnedPageIndex, 0, Math.max(0, getPinnedPagesCount() - 1));
+    }
+
+    @Nullable
+    private AppRef resolveNormalizedPinnedRef(@NonNull AppRef ref) {
+        LauncherAppEntry resolved = resolveRef(ref);
+        if (resolved == null) {
+            return null;
+        }
+        return resolveForSelectionRef(resolved.appRef);
     }
 
     public void previewAzLetter(char letter, int selectionIndex, boolean commit) {
