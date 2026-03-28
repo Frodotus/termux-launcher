@@ -3934,36 +3934,36 @@ public final class SuggestionBarView extends GridLayout {
 
         pageSwitchAnimating = true;
         final int direction = pageDelta > 0 ? 1 : -1;
-        final float travel = Math.max(dp(24), getWidth() * 0.28f);
-        final long duration = computePageAnimDuration(velocityPxPerSec);
+        final float travel = Math.max(dp(14), getWidth() * 0.12f);
+        final long duration = computePinnedPageAnimDuration(velocityPxPerSec);
 
+        animate().cancel();
+        setListenerSafe(null);
+        pinnedPageIndex = targetPage;
+        reloadWithInput("", lastTerminalView);
+        setTranslationX(direction * travel);
+        setAlpha(0.90f);
         animate()
-            .translationX(-direction * travel)
-            .alpha(0.42f)
+            .translationX(0f)
+            .alpha(1f)
             .setDuration(duration)
             .setInterpolator(new DecelerateInterpolator())
             .setListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                setListenerSafe(null);
-                pinnedPageIndex = targetPage;
-                reloadWithInput("", lastTerminalView);
-                setTranslationX(direction * travel * 0.48f);
-                setAlpha(0.52f);
-                animate()
-                    .translationX(0f)
-                    .alpha(1f)
-                    .setDuration(Math.max(110, duration - 20))
-                    .setInterpolator(new DecelerateInterpolator())
-                    .setListener(new AnimatorListenerAdapter() {
-                        @Override
-                        public void onAnimationEnd(Animator animation) {
-                            setListenerSafe(null);
-                            pageSwitchAnimating = false;
-                        }
-                    })
-                    .start();
-            }
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    setListenerSafe(null);
+                    pageSwitchAnimating = false;
+                    setTranslationX(0f);
+                    setAlpha(1f);
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+                    setListenerSafe(null);
+                    pageSwitchAnimating = false;
+                    setTranslationX(0f);
+                    setAlpha(1f);
+                }
             })
             .start();
     }
@@ -4051,6 +4051,12 @@ public final class SuggestionBarView extends GridLayout {
         float v = Math.max(200f, Math.min(6000f, Math.abs(velocityPxPerSec)));
         long ms = (long) (460f - ((v - 200f) / (6000f - 200f)) * 190f);
         return clamp((int) ms, 220, 460);
+    }
+
+    private long computePinnedPageAnimDuration(float velocityPxPerSec) {
+        float v = Math.max(200f, Math.min(6000f, Math.abs(velocityPxPerSec)));
+        long ms = (long) (230f - ((v - 200f) / (6000f - 200f)) * 120f);
+        return clamp((int) ms, 110, 230);
     }
 
     private void setListenerSafe(@Nullable AnimatorListenerAdapter adapter) {
