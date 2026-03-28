@@ -204,7 +204,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @Nullable private LauncherApps.Callback mLauncherAppsCallback;
     private boolean mLauncherAppsCallbackRegistered = false;
     private static final long PACKAGE_REFRESH_DEBOUNCE_MS = 120L;
-    private final Runnable mPackageRefreshRunnable = this::refreshSuggestionBarFromPackageState;
+    private boolean mPackageRefreshForceCatalogReload = false;
+    private final Runnable mPackageRefreshRunnable = () -> {
+        boolean forceCatalogRefresh = mPackageRefreshForceCatalogReload;
+        mPackageRefreshForceCatalogReload = false;
+        refreshSuggestionBarFromPackageState(forceCatalogRefresh);
+    };
 
     /**
      * The last toast shown, used cancel current toast before showing new in {@link #showToast(String, boolean)}.
@@ -472,7 +477,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         registerPackageChangeReceiver();
         registerLauncherAppsCallback();
         getWindow().getDecorView().post(() -> LauncherCtlApiServer.getInstance().ensureStartedAsync(getApplicationContext()));
-        scheduleSuggestionBarPackageRefresh(true);
+        scheduleSuggestionBarPackageRefresh(true, false);
     }
 
     @Override
@@ -2400,27 +2405,27 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mLauncherAppsCallback = new LauncherApps.Callback() {
                     @Override
                     public void onPackageRemoved(String packageName, UserHandle user) {
-                        scheduleSuggestionBarPackageRefresh(false);
+                        scheduleSuggestionBarPackageRefresh(false, true);
                     }
 
                     @Override
                     public void onPackageAdded(String packageName, UserHandle user) {
-                        scheduleSuggestionBarPackageRefresh(false);
+                        scheduleSuggestionBarPackageRefresh(false, true);
                     }
 
                     @Override
                     public void onPackageChanged(String packageName, UserHandle user) {
-                        scheduleSuggestionBarPackageRefresh(false);
+                        scheduleSuggestionBarPackageRefresh(false, true);
                     }
 
                     @Override
                     public void onPackagesAvailable(String[] packageNames, UserHandle user, boolean replacing) {
-                        scheduleSuggestionBarPackageRefresh(false);
+                        scheduleSuggestionBarPackageRefresh(false, true);
                     }
 
                     @Override
                     public void onPackagesUnavailable(String[] packageNames, UserHandle user, boolean replacing) {
-                        scheduleSuggestionBarPackageRefresh(false);
+                        scheduleSuggestionBarPackageRefresh(false, true);
                     }
 
                     @Override
@@ -2447,25 +2452,34 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mLauncherAppsCallbackRegistered = false;
     }
 
-    private void refreshSuggestionBarFromPackageState() {
-        LauncherCtlApiServer.getInstance().invalidatePackageCaches();
+    private void refreshSuggestionBarFromPackageState(boolean forceCatalogRefresh) {
         if (mSuggestionBarView == null) {
             return;
         }
-        mSuggestionBarView.clearAppCache();
-        mSuggestionBarView.reloadAllApps();
-        syncAzScrubLettersAndTint();
+        if (forceCatalogRefresh) {
+            LauncherCtlApiServer.getInstance().invalidatePackageCaches();
+            mSuggestionBarView.clearAppCache();
+            mSuggestionBarView.reloadAllApps();
+            syncAzScrubLettersAndTint();
+        } else if (mSuggestionBarView.hasPinnedOverflowPages()) {
+            // Keep affordance state fresh without forcing a catalog rebuild.
+            updateAzOverflowAffordance();
+        }
         String input = "";
         if (mTerminalView != null) {
             input = normalizeSuggestionBarInput(mTerminalView.getCurrentInput());
         }
         mSuggestionBarView.reloadWithInput(input, mTerminalView);
+        updateAzOverflowAffordance();
     }
 
-    private void scheduleSuggestionBarPackageRefresh(boolean immediate) {
+    private void scheduleSuggestionBarPackageRefresh(boolean immediate, boolean forceCatalogRefresh) {
+        mPackageRefreshForceCatalogReload = mPackageRefreshForceCatalogReload || forceCatalogRefresh;
         mAzGestureHandler.removeCallbacks(mPackageRefreshRunnable);
         if (immediate) {
-            refreshSuggestionBarFromPackageState();
+            boolean forceNow = mPackageRefreshForceCatalogReload;
+            mPackageRefreshForceCatalogReload = false;
+            refreshSuggestionBarFromPackageState(forceNow);
             return;
         }
         mAzGestureHandler.postDelayed(mPackageRefreshRunnable, PACKAGE_REFRESH_DEBOUNCE_MS);
@@ -2502,7 +2516,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (Intent.ACTION_PACKAGE_ADDED.equals(action) ||
                 Intent.ACTION_PACKAGE_REMOVED.equals(action) ||
                 Intent.ACTION_PACKAGE_CHANGED.equals(action)) {
-                scheduleSuggestionBarPackageRefresh(false);
+                scheduleSuggestionBarPackageRefresh(false, true);
             }
         }
     }

@@ -1168,6 +1168,9 @@ public final class SuggestionBarView extends GridLayout {
             setOnLongClickListener(null);
             setOnDragListener(null);
         }
+        if (overflowInteractionListener != null) {
+            overflowInteractionListener.onOverflowInteractionChanged(rowInteractionActive);
+        }
     }
 
     @NonNull
