@@ -347,8 +347,6 @@
                 <string name="termux_app_launcher_input_char_summary">Character used to split the prompt and input when detecting search text.</string>
                 <string name="termux_app_launcher_default_buttons_title">Default apps</string>
                 <string name="termux_app_launcher_default_buttons_summary">Comma-separated list of default apps to pin (for example: phone, telegram, spotify).</string>
-                <string name="termux_app_launcher_show_icons_title">Show icons</string>
-                <string name="termux_app_launcher_show_icons_summary">Display app icons instead of text labels.</string>
                 <string name="termux_app_launcher_bw_icons_title">Black and white icons</string>
                 <string name="termux_app_launcher_bw_icons_summary">Render app icons in grayscale.</string>
                 <string name="termux_app_launcher_az_row_enabled_title">Enable A-Z scrub row</string>
