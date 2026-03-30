@@ -294,7 +294,7 @@ public final class TerminalRenderer {
             // The text alignment is the default Paint.Align.LEFT.
             float baseline = y - fontLineSpacingAndAscent;
             if (runContainsPowerlineGlyph(text, startCharIndex, runWidthChars))
-                baseline -= POWERLINE_BASELINE_NUDGE_PX;
+                baseline += POWERLINE_BASELINE_NUDGE_PX;
             canvas.drawTextRun(text, startCharIndex, runWidthChars, startCharIndex, runWidthChars, left, baseline, false, mTextPaint);
         }
         if (savedMatrix)

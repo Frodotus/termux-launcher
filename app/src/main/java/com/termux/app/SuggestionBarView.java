@@ -3995,36 +3995,10 @@ public final class SuggestionBarView extends GridLayout {
         final int direction = pageDelta > 0 ? 1 : -1;
         final float travel = Math.max(dp(14), getWidth() * 0.12f);
         final long duration = computePinnedPageAnimDuration(velocityPxPerSec);
-
-        animate().cancel();
-        setListenerSafe(null);
-        pinnedPageIndex = targetPage;
-        reloadWithInput("", lastTerminalView);
-        setTranslationX(direction * travel);
-        setAlpha(0.90f);
-        animate()
-            .translationX(0f)
-            .alpha(1f)
-            .setDuration(duration)
-            .setInterpolator(new DecelerateInterpolator())
-            .setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    setListenerSafe(null);
-                    pageSwitchAnimating = false;
-                    setTranslationX(0f);
-                    setAlpha(1f);
-                }
-
-                @Override
-                public void onAnimationCancel(Animator animation) {
-                    setListenerSafe(null);
-                    pageSwitchAnimating = false;
-                    setTranslationX(0f);
-                    setAlpha(1f);
-                }
-            })
-            .start();
+        runUnifiedAppsBarPageSwitch(direction, travel, duration, () -> {
+            pinnedPageIndex = targetPage;
+            reloadWithInput("", lastTerminalView);
+        }, null);
     }
 
     private void animateAzPageSwitch(int pageDelta, float velocityPxPerSec) {
@@ -4037,14 +4011,45 @@ public final class SuggestionBarView extends GridLayout {
         final int direction = pageDelta > 0 ? 1 : -1;
         final float travel = Math.max(dp(14), getWidth() * 0.12f);
         final long duration = computePinnedPageAnimDuration(velocityPxPerSec);
+        runUnifiedAppsBarPageSwitch(direction, travel, duration, () -> {
+            activeAzPageIndex = targetPage;
+            if (activeAzLetter != null) {
+                refreshActiveAzCandidates(activeAzLetter);
+            }
+            renderButtons(activeAzCandidates, true);
+        }, () -> {
+            if (activeAzLetter != null) {
+                captureAzRenderState(activeAzLetter, activeAzPageIndex, Math.max(1, maxButtonCount), activeAzCandidates);
+            }
+        });
+    }
 
+    private void setRowInteractionActive(boolean active) {
+        if (rowInteractionActive == active) {
+            return;
+        }
+        rowInteractionActive = active;
+        if (overflowInteractionListener != null) {
+            overflowInteractionListener.onOverflowInteractionChanged(active);
+        }
+    }
+
+    private long computePinnedPageAnimDuration(float velocityPxPerSec) {
+        float v = Math.max(200f, Math.min(6000f, Math.abs(velocityPxPerSec)));
+        long ms = (long) (230f - ((v - 200f) / (6000f - 200f)) * 120f);
+        return clamp((int) ms, 110, 230);
+    }
+
+    private void runUnifiedAppsBarPageSwitch(
+        int direction,
+        float travel,
+        long duration,
+        @Nullable Runnable updateContent,
+        @Nullable Runnable onCompleted
+    ) {
         animate().cancel();
         setListenerSafe(null);
-        activeAzPageIndex = targetPage;
-        if (activeAzLetter != null) {
-            refreshActiveAzCandidates(activeAzLetter);
-        }
-        renderButtons(activeAzCandidates, true);
+        if (updateContent != null) updateContent.run();
         setTranslationX(direction * travel);
         setRotationY(0f);
         setScaleX(1f);
@@ -4065,9 +4070,7 @@ public final class SuggestionBarView extends GridLayout {
                     setScaleY(1f);
                     setTranslationX(0f);
                     setAlpha(1f);
-                    if (activeAzLetter != null) {
-                        captureAzRenderState(activeAzLetter, activeAzPageIndex, Math.max(1, maxButtonCount), activeAzCandidates);
-                    }
+                    if (onCompleted != null) onCompleted.run();
                 }
 
                 @Override
@@ -4082,28 +4085,6 @@ public final class SuggestionBarView extends GridLayout {
                 }
             })
             .start();
-    }
-
-    private void setRowInteractionActive(boolean active) {
-        if (rowInteractionActive == active) {
-            return;
-        }
-        rowInteractionActive = active;
-        if (overflowInteractionListener != null) {
-            overflowInteractionListener.onOverflowInteractionChanged(active);
-        }
-    }
-
-    private long computePageAnimDuration(float velocityPxPerSec) {
-        float v = Math.max(200f, Math.min(6000f, Math.abs(velocityPxPerSec)));
-        long ms = (long) (460f - ((v - 200f) / (6000f - 200f)) * 190f);
-        return clamp((int) ms, 220, 460);
-    }
-
-    private long computePinnedPageAnimDuration(float velocityPxPerSec) {
-        float v = Math.max(200f, Math.min(6000f, Math.abs(velocityPxPerSec)));
-        long ms = (long) (230f - ((v - 200f) / (6000f - 200f)) * 120f);
-        return clamp((int) ms, 110, 230);
     }
 
     private void setListenerSafe(@Nullable AnimatorListenerAdapter adapter) {
