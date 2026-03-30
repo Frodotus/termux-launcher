@@ -4035,62 +4035,50 @@ public final class SuggestionBarView extends GridLayout {
 
         pageSwitchAnimating = true;
         final int direction = pageDelta > 0 ? 1 : -1;
-        final float travel = Math.max(dp(10), getWidth() * 0.08f);
-        final long duration = clamp((int) (computePageAnimDuration(velocityPxPerSec) * 0.78f), 180, 300);
-        final long phaseDuration = Math.max(110L, duration / 2L);
-        final float turnDegrees = 15f;
-        final float phaseOneRotation = -direction * turnDegrees;
-        final float phaseTwoRotation = direction * turnDegrees * 0.62f;
+        final float travel = Math.max(dp(14), getWidth() * 0.12f);
+        final long duration = computePinnedPageAnimDuration(velocityPxPerSec);
 
-        setPivotX(getWidth() * 0.5f);
-        setPivotY(getHeight() * 0.5f);
-        setCameraDistance(Math.max(getResources().getDisplayMetrics().density * 6000f, getWidth() * 14f));
-
+        animate().cancel();
+        setListenerSafe(null);
+        activeAzPageIndex = targetPage;
+        if (activeAzLetter != null) {
+            refreshActiveAzCandidates(activeAzLetter);
+        }
+        renderButtons(activeAzCandidates, true);
+        setTranslationX(direction * travel);
+        setRotationY(0f);
+        setScaleX(1f);
+        setScaleY(1f);
+        setAlpha(0.90f);
         animate()
-            .translationX(-direction * travel)
-            .rotationY(phaseOneRotation)
-            .scaleX(0.982f)
-            .scaleY(0.992f)
-            .alpha(0.90f)
-            .setDuration(phaseDuration)
+            .translationX(0f)
+            .alpha(1f)
+            .setDuration(duration)
             .setInterpolator(new DecelerateInterpolator())
             .setListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     setListenerSafe(null);
-                    activeAzPageIndex = targetPage;
+                    pageSwitchAnimating = false;
+                    setRotationY(0f);
+                    setScaleX(1f);
+                    setScaleY(1f);
+                    setTranslationX(0f);
+                    setAlpha(1f);
                     if (activeAzLetter != null) {
-                        refreshActiveAzCandidates(activeAzLetter);
+                        captureAzRenderState(activeAzLetter, activeAzPageIndex, Math.max(1, maxButtonCount), activeAzCandidates);
                     }
-                    renderButtons(activeAzCandidates, true);
-                    setTranslationX(direction * travel * 0.68f);
-                    setRotationY(phaseTwoRotation);
-                    setScaleX(0.984f);
-                    setScaleY(0.994f);
-                    setAlpha(0.92f);
-                    animate()
-                        .translationX(0f)
-                        .rotationY(0f)
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .alpha(1f)
-                        .setDuration(phaseDuration)
-                        .setInterpolator(new DecelerateInterpolator())
-                        .setListener(new AnimatorListenerAdapter() {
-                            @Override
-                            public void onAnimationEnd(Animator animation) {
-                                setListenerSafe(null);
-                                pageSwitchAnimating = false;
-                                setRotationY(0f);
-                                setScaleX(1f);
-                                setScaleY(1f);
-                                setTranslationX(0f);
-                                if (activeAzLetter != null) {
-                                    captureAzRenderState(activeAzLetter, activeAzPageIndex, Math.max(1, maxButtonCount), activeAzCandidates);
-                                }
-                            }
-                        })
-                        .start();
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+                    setListenerSafe(null);
+                    pageSwitchAnimating = false;
+                    setRotationY(0f);
+                    setScaleX(1f);
+                    setScaleY(1f);
+                    setTranslationX(0f);
+                    setAlpha(1f);
                 }
             })
             .start();
