@@ -72,7 +72,7 @@ public final class TerminalRenderer {
 
     private static final int POWERLINE_PRIVATE_USE_START = 0xE0A0;
     private static final int POWERLINE_PRIVATE_USE_END = 0xE0D7;
-    private static final float POWERLINE_BASELINE_NUDGE_PX = 0f;
+    private static final float POWERLINE_BASELINE_NUDGE_PX = 0.35f;
 
     public TerminalRenderer(int textSize, Typeface typeface, Typeface italicTypeface) {
         mTextSize = textSize;
