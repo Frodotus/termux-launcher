@@ -72,7 +72,7 @@ public final class TerminalRenderer {
 
     private static final int POWERLINE_PRIVATE_USE_START = 0xE0A0;
     private static final int POWERLINE_PRIVATE_USE_END = 0xE0D7;
-    private static final float POWERLINE_BASELINE_NUDGE_PX = 0.35f;
+    private static volatile float sPowerlineBaselineNudgePx = 0f;
 
     public TerminalRenderer(int textSize, Typeface typeface, Typeface italicTypeface) {
         mTextSize = textSize;
@@ -294,7 +294,7 @@ public final class TerminalRenderer {
             // The text alignment is the default Paint.Align.LEFT.
             float baseline = y - fontLineSpacingAndAscent;
             if (runContainsPowerlineGlyph(text, startCharIndex, runWidthChars))
-                baseline += POWERLINE_BASELINE_NUDGE_PX;
+                baseline += sPowerlineBaselineNudgePx;
             canvas.drawTextRun(text, startCharIndex, runWidthChars, startCharIndex, runWidthChars, left, baseline, false, mTextPaint);
         }
         if (savedMatrix)
@@ -329,5 +329,13 @@ public final class TerminalRenderer {
 
     public int getFontLineSpacingAndAscent() {
         return mFontLineSpacingAndAscent;
+    }
+
+    public static void setPowerlineBaselineNudgePx(float nudgePx) {
+        sPowerlineBaselineNudgePx = Math.max(-2f, Math.min(2f, nudgePx));
+    }
+
+    public static float getPowerlineBaselineNudgePx() {
+        return sPowerlineBaselineNudgePx;
     }
 }
