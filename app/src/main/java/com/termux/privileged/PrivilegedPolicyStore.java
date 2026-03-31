@@ -16,21 +16,13 @@ public final class PrivilegedPolicyStore {
     public static final String KEY_PREFER_SHIZUKU = "priv_prefer_shizuku";
     public static final String KEY_ALLOW_SHELL_FALLBACK = "priv_allow_shell_fallback";
 
-    public static final String KEY_ENDPOINT_REQUEST_PERMISSION = "priv_endpoint_request_permission";
     public static final String KEY_ENDPOINT_EXEC = "priv_endpoint_exec";
-    public static final String KEY_ENDPOINT_BRIGHTNESS = "priv_endpoint_brightness";
-    public static final String KEY_ENDPOINT_VOLUME = "priv_endpoint_volume";
-    public static final String KEY_ENDPOINT_LOCK_SCREEN = "priv_endpoint_lock_screen";
 
     private PrivilegedPolicyStore() {
     }
 
     public enum Endpoint {
-        REQUEST_PERMISSION,
-        EXEC,
-        BRIGHTNESS,
-        VOLUME,
-        LOCK_SCREEN
+        EXEC
     }
 
     public static boolean isMasterEnabled(Context context) {
@@ -60,16 +52,8 @@ public final class PrivilegedPolicyStore {
     public static boolean isEndpointEnabled(Context context, @NonNull Endpoint endpoint) {
         SharedPreferences prefs = getPrefs(context);
         switch (endpoint) {
-            case REQUEST_PERMISSION:
-                return prefs.getBoolean(KEY_ENDPOINT_REQUEST_PERMISSION, true);
             case EXEC:
                 return prefs.getBoolean(KEY_ENDPOINT_EXEC, true);
-            case BRIGHTNESS:
-                return prefs.getBoolean(KEY_ENDPOINT_BRIGHTNESS, true);
-            case VOLUME:
-                return prefs.getBoolean(KEY_ENDPOINT_VOLUME, true);
-            case LOCK_SCREEN:
-                return prefs.getBoolean(KEY_ENDPOINT_LOCK_SCREEN, true);
             default:
                 return true;
         }
@@ -78,20 +62,8 @@ public final class PrivilegedPolicyStore {
     public static void setEndpointEnabled(Context context, @NonNull Endpoint endpoint, boolean enabled) {
         SharedPreferences.Editor editor = getPrefs(context).edit();
         switch (endpoint) {
-            case REQUEST_PERMISSION:
-                editor.putBoolean(KEY_ENDPOINT_REQUEST_PERMISSION, enabled);
-                break;
             case EXEC:
                 editor.putBoolean(KEY_ENDPOINT_EXEC, enabled);
-                break;
-            case BRIGHTNESS:
-                editor.putBoolean(KEY_ENDPOINT_BRIGHTNESS, enabled);
-                break;
-            case VOLUME:
-                editor.putBoolean(KEY_ENDPOINT_VOLUME, enabled);
-                break;
-            case LOCK_SCREEN:
-                editor.putBoolean(KEY_ENDPOINT_LOCK_SCREEN, enabled);
                 break;
         }
         editor.apply();

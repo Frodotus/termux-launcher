@@ -16,14 +16,10 @@ Commands:
   media                     Get now-playing media info.
   art                       Get current media artwork metadata.
   notifications             Get active notifications snapshot.
-  brightness [value]        Set or query screen brightness endpoint.
-  volume [value] [stream]   Set or query volume endpoint.
   exec <command>            Run policy-allowed command via /v1/exec.
   restart                   Restart the launcher through authenticated API.
   tty-exec <command>        Run interactive command via ~/.rish/rish.
   tty-doctor                Validate local rish setup and print fixes.
-  permission                Request privileged backend permission.
-  lock                      Lock screen.
   token rotate              Rotate LauncherCtl API auth token.
 
 Examples:
@@ -33,9 +29,6 @@ Examples:
   launcherctl restart
   launcherctl tty-doctor
   launcherctl tty-exec "id"
-  launcherctl volume 8 3
-  launcherctl brightness 120
-  launcherctl permission
 
 Config files:
   ~/.launcherctl/endpoint   Base URL (for example http://127.0.0.1:40851)
@@ -201,25 +194,6 @@ case "$cmd" in
   notifications)
     curl $CURL_COMMON -H "Authorization: Bearer $TOKEN" "$BASE/v1/notifications"
     ;;
-  brightness)
-    if [ "$#" -gt 0 ]; then
-      curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-        --data "{\"brightness\":$1}" "$BASE/v1/system/brightness"
-    else
-      curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" "$BASE/v1/system/brightness"
-    fi
-    ;;
-  volume)
-    if [ "$#" -gt 1 ]; then
-      curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-        --data "{\"volume\":$1,\"stream\":$2}" "$BASE/v1/system/volume"
-    elif [ "$#" -gt 0 ]; then
-      curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-        --data "{\"volume\":$1}" "$BASE/v1/system/volume"
-    else
-      curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" "$BASE/v1/system/volume"
-    fi
-    ;;
   exec)
     [ "$#" -gt 0 ] || { print_exec_help >&2; exit 2; }
     CMD_ESCAPED=$(json_escape "$*")
@@ -236,12 +210,6 @@ case "$cmd" in
     ;;
   tty-doctor)
     tty_doctor
-    ;;
-  permission)
-    curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" "$BASE/v1/privileged/request-permission"
-    ;;
-  lock)
-    curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" "$BASE/v1/screen/lock"
     ;;
   token)
     sub="${1:-}"; shift || true

@@ -78,26 +78,9 @@ Requires notification listener access.
 Returns cached notification list.
 Requires notification listener access.
 
-### `POST /v1/system/brightness`
-Reads current brightness and optionally sets a new value.
-- Request body (optional): `{"brightness": <0..255>}` or `{"value": <0..255>}`
-- Empty body performs read-only snapshot.
-
-### `POST /v1/system/volume`
-Reads current volume and optionally sets a new value.
-- Request body (optional): `{"volume": <int>, "stream": <int>}` or `{"value": <int>}`
-- Empty body performs read-only snapshot for music stream.
-
 ### `POST /v1/exec`
 Runs a privileged command through `PrivilegedBackendManager`.
 Subject to strict policy in `~/.launcherctl/config.json`.
-
-### `POST /v1/privileged/request-permission`
-Requests privileged permission when Shizuku is available but not yet granted.
-Returns backend status fields to help diagnose permission state.
-
-### `POST /v1/screen/lock`
-Attempts screen lock key event (`223`, fallback `26`) via privileged backend.
 
 ### `POST /v1/auth/rotate`
 Rotates API token and rewrites `~/.launcherctl/token` and `~/.launcherctl/endpoint`.
@@ -113,16 +96,9 @@ launcherctl resources
 launcherctl media
 launcherctl art
 launcherctl notifications
-launcherctl brightness
-launcherctl brightness 128
-launcherctl volume
-launcherctl volume 8
-launcherctl volume 6 3
-launcherctl lock
 launcherctl exec id
 launcherctl tty-doctor
 launcherctl tty-exec "id"
-launcherctl permission
 launcherctl token rotate
 ```
 

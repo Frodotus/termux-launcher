@@ -122,20 +122,8 @@ class PrivilegedAccessPreferencesDataStore extends PreferenceDataStore {
             case PrivilegedPolicyStore.KEY_ALLOW_SHELL_FALLBACK:
                 PrivilegedPolicyStore.setShellFallbackEnabled(mContext, value);
                 break;
-            case PrivilegedPolicyStore.KEY_ENDPOINT_REQUEST_PERMISSION:
-                PrivilegedPolicyStore.setEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.REQUEST_PERMISSION, value);
-                break;
             case PrivilegedPolicyStore.KEY_ENDPOINT_EXEC:
                 PrivilegedPolicyStore.setEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.EXEC, value);
-                break;
-            case PrivilegedPolicyStore.KEY_ENDPOINT_BRIGHTNESS:
-                PrivilegedPolicyStore.setEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.BRIGHTNESS, value);
-                break;
-            case PrivilegedPolicyStore.KEY_ENDPOINT_VOLUME:
-                PrivilegedPolicyStore.setEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.VOLUME, value);
-                break;
-            case PrivilegedPolicyStore.KEY_ENDPOINT_LOCK_SCREEN:
-                PrivilegedPolicyStore.setEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.LOCK_SCREEN, value);
                 break;
             default:
                 break;
@@ -154,16 +142,8 @@ class PrivilegedAccessPreferencesDataStore extends PreferenceDataStore {
                 return PrivilegedPolicyStore.isPreferShizuku(mContext);
             case PrivilegedPolicyStore.KEY_ALLOW_SHELL_FALLBACK:
                 return PrivilegedPolicyStore.isShellFallbackEnabled(mContext);
-            case PrivilegedPolicyStore.KEY_ENDPOINT_REQUEST_PERMISSION:
-                return PrivilegedPolicyStore.isEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.REQUEST_PERMISSION);
             case PrivilegedPolicyStore.KEY_ENDPOINT_EXEC:
                 return PrivilegedPolicyStore.isEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.EXEC);
-            case PrivilegedPolicyStore.KEY_ENDPOINT_BRIGHTNESS:
-                return PrivilegedPolicyStore.isEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.BRIGHTNESS);
-            case PrivilegedPolicyStore.KEY_ENDPOINT_VOLUME:
-                return PrivilegedPolicyStore.isEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.VOLUME);
-            case PrivilegedPolicyStore.KEY_ENDPOINT_LOCK_SCREEN:
-                return PrivilegedPolicyStore.isEndpointEnabled(mContext, PrivilegedPolicyStore.Endpoint.LOCK_SCREEN);
             default:
                 return defValue;
         }

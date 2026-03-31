@@ -51,7 +51,6 @@ import com.termux.app.launcher.data.LauncherAppDataProvider;
 import com.termux.app.launcher.data.LauncherConfigRepository;
 import com.termux.launcherctl.LauncherCtlApiServer;
 import com.termux.privileged.PrivilegedBackendManager;
-import com.termux.privileged.PrivilegedPolicyStore;
 import com.termux.privileged.ShizukuBackend;
 import com.termux.app.style.TermuxBackgroundManager;
 import com.termux.app.style.TermuxSystemWallpaperManager;
@@ -1637,9 +1636,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private void lockScreenFromAzDoubleTap() {
         if (mPreferences == null || !mPreferences.isAppLauncherAzDoubleTapLockEnabled()) {
-            return;
-        }
-        if (!PrivilegedPolicyStore.isEndpointEnabled(this, PrivilegedPolicyStore.Endpoint.LOCK_SCREEN)) {
             return;
         }
         PrivilegedBackendManager manager = PrivilegedBackendManager.getInstance();

@@ -53,11 +53,7 @@ Current LauncherCtl endpoints include:
 - `/v1/media/now-playing`
 - `/v1/media/art` (now-playing album art payload)
 - `/v1/notifications`
-- `/v1/system/brightness` (read/set screen brightness)
-- `/v1/system/volume` (read/set stream volume)
 - `/v1/exec` (policy-gated)
-- `/v1/privileged/request-permission`
-- `/v1/screen/lock`
 - `/v1/auth/rotate`
 
 Docs and policy notes:

@@ -48,33 +48,9 @@
         app:title="@string/termux_privileged_endpoints_title">
 
         <SwitchPreferenceCompat
-            app:key="priv_endpoint_request_permission"
-            app:title="@string/termux_privileged_endpoint_request_permission_title"
-            app:summary="@string/termux_privileged_endpoint_request_permission_summary"
-            app:defaultValue="true" />
-
-        <SwitchPreferenceCompat
             app:key="priv_endpoint_exec"
             app:title="@string/termux_privileged_endpoint_exec_title"
             app:summary="@string/termux_privileged_endpoint_exec_summary"
-            app:defaultValue="true" />
-
-        <SwitchPreferenceCompat
-            app:key="priv_endpoint_brightness"
-            app:title="@string/termux_privileged_endpoint_brightness_title"
-            app:summary="@string/termux_privileged_endpoint_brightness_summary"
-            app:defaultValue="true" />
-
-        <SwitchPreferenceCompat
-            app:key="priv_endpoint_volume"
-            app:title="@string/termux_privileged_endpoint_volume_title"
-            app:summary="@string/termux_privileged_endpoint_volume_summary"
-            app:defaultValue="true" />
-
-        <SwitchPreferenceCompat
-            app:key="priv_endpoint_lock_screen"
-            app:title="@string/termux_privileged_endpoint_lock_screen_title"
-            app:summary="@string/termux_privileged_endpoint_lock_screen_summary"
             app:defaultValue="true" />
 
     </PreferenceCategory>

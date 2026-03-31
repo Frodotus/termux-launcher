@@ -13,11 +13,9 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.media.AudioManager;
 import android.os.BatteryManager;
 import android.os.StatFs;
 import android.os.SystemClock;
-import android.provider.Settings;
 
 import com.jakewharton.processphoenix.ProcessPhoenix;
 import com.termux.privileged.PrivilegedBackend;
@@ -57,8 +55,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Local LauncherCtl API server exposed on localhost for shell integrations.
@@ -79,9 +75,6 @@ public class LauncherCtlApiServer {
     private static final int MAX_BODY_BYTES = 16 * 1024;
     private static final int MAX_EXEC_COMMAND_LENGTH = 512;
     private static final int CLIENT_SOCKET_TIMEOUT_MS = 10_000;
-    private static final int MIN_BRIGHTNESS = 0;
-    private static final int MAX_BRIGHTNESS = 255;
-    private static final int DEFAULT_VOLUME_STREAM = AudioManager.STREAM_MUSIC;
 
     private static LauncherCtlApiServer instance;
 
@@ -253,14 +246,6 @@ public class LauncherCtlApiServer {
                 return jsonResponse(runExec(context, request.body));
             } else if ("POST".equals(request.method) && "/v1/app/restart".equals(request.path)) {
                 return jsonResponse(runAppRestart(context));
-            } else if ("POST".equals(request.method) && "/v1/system/brightness".equals(request.path)) {
-                return jsonResponse(runBrightness(context, request.body));
-            } else if ("POST".equals(request.method) && "/v1/system/volume".equals(request.path)) {
-                return jsonResponse(runVolume(context, request.body));
-            } else if ("POST".equals(request.method) && "/v1/privileged/request-permission".equals(request.path)) {
-                return jsonResponse(requestPrivilegedPermission(context));
-            } else if ("POST".equals(request.method) && "/v1/screen/lock".equals(request.path)) {
-                return jsonResponse(runLockScreen(context));
             } else if ("POST".equals(request.method) && "/v1/auth/rotate".equals(request.path)) {
                 return jsonResponse(rotateAuthToken());
             }
@@ -542,41 +527,6 @@ public class LauncherCtlApiServer {
         return data;
     }
 
-    private JSONObject requestPrivilegedPermission(Context context) throws JSONException {
-        JSONObject endpointGuard = ensurePrivilegedEndpointEnabled(context, PrivilegedPolicyStore.Endpoint.REQUEST_PERMISSION, "/v1/privileged/request-permission");
-        if (endpointGuard != null) return endpointGuard;
-        PrivilegedBackendManager manager = PrivilegedBackendManager.getInstance();
-        boolean requested = manager.requestPrivilegedPermission(ShizukuBackend.PERMISSION_REQUEST_CODE);
-
-        JSONObject data = new JSONObject();
-        data.put("ok", requested || manager.getBackend().hasPermission());
-        data.put("requested", requested);
-        data.put("backendType", String.valueOf(manager.getBackendType()));
-        data.put("backendState", String.valueOf(manager.getBackendState()));
-        data.put("statusReason", String.valueOf(manager.getStatusReason()));
-        data.put("statusMessage", manager.getStatusMessage());
-        data.put("hasPermission", manager.getBackend().hasPermission());
-        return data;
-    }
-
-    private JSONObject runLockScreen(Context context) throws JSONException {
-        JSONObject endpointGuard = ensurePrivilegedEndpointEnabled(context, PrivilegedPolicyStore.Endpoint.LOCK_SCREEN, "/v1/screen/lock");
-        if (endpointGuard != null) return endpointGuard;
-        String first = executePrivileged("input keyevent 223");
-        String used = "input keyevent 223";
-        String output = first;
-        if (first != null && first.startsWith("Error")) {
-            used = "input keyevent 26";
-            output = executePrivileged(used);
-        }
-
-        JSONObject data = new JSONObject();
-        data.put("ok", isSuccessfulCommandOutput(output));
-        data.put("command", used);
-        data.put("output", output == null ? "" : output);
-        return data;
-    }
-
     private JSONObject runAppRestart(Context context) throws JSONException {
         Intent restartIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         if (restartIntent == null) {
@@ -609,103 +559,6 @@ public class LauncherCtlApiServer {
         return data;
     }
 
-    private JSONObject runBrightness(Context context, String body) throws JSONException {
-        JSONObject endpointGuard = ensurePrivilegedEndpointEnabled(context, PrivilegedPolicyStore.Endpoint.BRIGHTNESS, "/v1/system/brightness");
-        if (endpointGuard != null) return endpointGuard;
-        JSONObject request = body != null && !body.isEmpty() ? new JSONObject(body) : new JSONObject();
-        Integer targetBrightness = readOptionalInteger(request, "brightness", "value");
-        if (targetBrightness != null && (targetBrightness < MIN_BRIGHTNESS || targetBrightness > MAX_BRIGHTNESS)) {
-            JSONObject error = jsonError("bad_request", "brightness must be between 0 and 255");
-            error.put("_statusCode", 400);
-            return error;
-        }
-
-        String setOutput = "";
-        if (targetBrightness != null) {
-            setOutput = executePrivileged("settings put system screen_brightness " + targetBrightness);
-            if (!isSuccessfulCommandOutput(setOutput)) {
-                JSONObject error = jsonError("set_failed", setOutput);
-                error.put("_statusCode", 500);
-                return error;
-            }
-        }
-
-        String readOutput = executePrivileged("settings get system screen_brightness");
-        Integer currentBrightness = parseFirstInteger(readOutput);
-
-        JSONObject data = new JSONObject();
-        data.put("ok", currentBrightness != null);
-        data.put("setRequested", targetBrightness != null);
-        data.put("targetBrightness", targetBrightness != null ? targetBrightness : JSONObject.NULL);
-        data.put("currentBrightness", currentBrightness != null ? currentBrightness : JSONObject.NULL);
-        data.put("rangeMin", MIN_BRIGHTNESS);
-        data.put("rangeMax", MAX_BRIGHTNESS);
-        data.put("rawReadOutput", readOutput == null ? "" : readOutput.trim());
-        if (targetBrightness != null) {
-            data.put("rawSetOutput", setOutput == null ? "" : setOutput.trim());
-        }
-        try {
-            data.put("canWriteSystemSettings", Settings.System.canWrite(context));
-        } catch (Exception ignored) {
-        }
-        return data;
-    }
-
-    private JSONObject runVolume(Context context, String body) throws JSONException {
-        JSONObject endpointGuard = ensurePrivilegedEndpointEnabled(context, PrivilegedPolicyStore.Endpoint.VOLUME, "/v1/system/volume");
-        if (endpointGuard != null) return endpointGuard;
-        JSONObject request = body != null && !body.isEmpty() ? new JSONObject(body) : new JSONObject();
-        int stream = request.optInt("stream", DEFAULT_VOLUME_STREAM);
-        Integer targetVolume = readOptionalInteger(request, "volume", "value");
-
-        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        if (audioManager == null) {
-            JSONObject error = jsonError("unavailable", "AudioManager unavailable");
-            error.put("_statusCode", 500);
-            return error;
-        }
-
-        int minVolume = 0;
-        int maxVolume;
-        try {
-            maxVolume = audioManager.getStreamMaxVolume(stream);
-        } catch (Exception e) {
-            JSONObject error = jsonError("bad_request", "Invalid stream type");
-            error.put("_statusCode", 400);
-            return error;
-        }
-
-        if (targetVolume != null && (targetVolume < minVolume || targetVolume > maxVolume)) {
-            JSONObject error = jsonError("bad_request",
-                "volume must be between " + minVolume + " and " + maxVolume + " for stream " + stream);
-            error.put("_statusCode", 400);
-            return error;
-        }
-
-        try {
-            if (targetVolume != null) {
-                audioManager.setStreamVolume(stream, targetVolume, 0);
-            }
-            int currentVolume = audioManager.getStreamVolume(stream);
-            JSONObject data = new JSONObject();
-            data.put("ok", true);
-            data.put("setRequested", targetVolume != null);
-            data.put("stream", stream);
-            data.put("targetVolume", targetVolume != null ? targetVolume : JSONObject.NULL);
-            data.put("currentVolume", currentVolume);
-            data.put("rangeMin", minVolume);
-            data.put("rangeMax", maxVolume);
-            return data;
-        } catch (SecurityException securityException) {
-            JSONObject error = jsonError("forbidden", "Volume control requires MODIFY_AUDIO_SETTINGS permission");
-            error.put("_statusCode", 403);
-            return error;
-        } catch (Exception e) {
-            JSONObject error = jsonError("volume_failed", e.getMessage());
-            error.put("_statusCode", 500);
-            return error;
-        }
-    }
     private JSONObject ensurePrivilegedEndpointEnabled(Context context, PrivilegedPolicyStore.Endpoint endpoint, String endpointPath) throws JSONException {
         if (context == null) {
             JSONObject error = jsonError("unavailable", "Context unavailable for privileged policy check");
@@ -741,11 +594,7 @@ public class LauncherCtlApiServer {
         info.put("allowShellFallback", PrivilegedPolicyStore.isShellFallbackEnabled(context));
 
         JSONObject endpoints = new JSONObject();
-        endpoints.put("requestPermission", PrivilegedPolicyStore.isEndpointEnabled(context, PrivilegedPolicyStore.Endpoint.REQUEST_PERMISSION));
         endpoints.put("exec", PrivilegedPolicyStore.isEndpointEnabled(context, PrivilegedPolicyStore.Endpoint.EXEC));
-        endpoints.put("brightness", PrivilegedPolicyStore.isEndpointEnabled(context, PrivilegedPolicyStore.Endpoint.BRIGHTNESS));
-        endpoints.put("volume", PrivilegedPolicyStore.isEndpointEnabled(context, PrivilegedPolicyStore.Endpoint.VOLUME));
-        endpoints.put("lockScreen", PrivilegedPolicyStore.isEndpointEnabled(context, PrivilegedPolicyStore.Endpoint.LOCK_SCREEN));
         info.put("endpoints", endpoints);
 
         return info;
@@ -937,9 +786,6 @@ public class LauncherCtlApiServer {
         rateLimiters.put("GET:/v1/notifications", new SimpleRateLimiter(120, 60_000));
         rateLimiters.put("POST:/v1/exec", new SimpleRateLimiter(30, 60_000));
         rateLimiters.put("POST:/v1/app/restart", new SimpleRateLimiter(5, 60_000));
-        rateLimiters.put("POST:/v1/system/brightness", new SimpleRateLimiter(30, 60_000));
-        rateLimiters.put("POST:/v1/system/volume", new SimpleRateLimiter(30, 60_000));
-        rateLimiters.put("POST:/v1/screen/lock", new SimpleRateLimiter(20, 60_000));
         rateLimiters.put("POST:/v1/auth/rotate", new SimpleRateLimiter(5, 60_000));
     }
 
@@ -1038,25 +884,6 @@ public class LauncherCtlApiServer {
             "  notifications)\n" +
             "    curl $CURL_COMMON -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/notifications\"\n" +
             "    ;;\n" +
-            "  brightness)\n" +
-            "    if [ \"$#\" -gt 0 ]; then\n" +
-            "      curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" \\\n" +
-            "        --data \"{\\\"brightness\\\":$1}\" \"$BASE/v1/system/brightness\"\n" +
-            "    else\n" +
-            "      curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/system/brightness\"\n" +
-            "    fi\n" +
-            "    ;;\n" +
-            "  volume)\n" +
-            "    if [ \"$#\" -gt 1 ]; then\n" +
-            "      curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" \\\n" +
-            "        --data \"{\\\"volume\\\":$1,\\\"stream\\\":$2}\" \"$BASE/v1/system/volume\"\n" +
-            "    elif [ \"$#\" -gt 0 ]; then\n" +
-            "      curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" \\\n" +
-            "        --data \"{\\\"volume\\\":$1}\" \"$BASE/v1/system/volume\"\n" +
-            "    else\n" +
-            "      curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/system/volume\"\n" +
-            "    fi\n" +
-            "    ;;\n" +
             "  exec)\n" +
             "    [ \"$#\" -gt 0 ] || { echo \"usage: launcherctl exec <command>\" >&2; exit 2; }\n" +
             "    CMD_ESCAPED=$(json_escape \"$*\")\n" +
@@ -1074,19 +901,13 @@ public class LauncherCtlApiServer {
             "  tty-doctor)\n" +
             "    tty_doctor\n" +
             "    ;;\n" +
-            "  permission)\n" +
-            "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/privileged/request-permission\"\n" +
-            "    ;;\n" +
-            "  lock)\n" +
-            "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/screen/lock\"\n" +
-            "    ;;\n" +
             "  token)\n" +
             "    sub=\"${1:-}\"; shift || true\n" +
             "    [ \"$sub\" = \"rotate\" ] || { echo \"usage: launcherctl token rotate\" >&2; exit 2; }\n" +
             "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/auth/rotate\"\n" +
             "    ;;\n" +
             "  *)\n" +
-            "    echo \"usage: launcherctl {status|apps|resources|media|art|notifications|brightness [value]|volume [value] [stream]|exec|restart|tty-exec|tty-doctor|permission|lock|token rotate}\" >&2\n" +
+            "    echo \"usage: launcherctl {status|apps|resources|media|art|notifications|exec|restart|tty-exec|tty-doctor|token rotate}\" >&2\n" +
             "    exit 2\n" +
             "    ;;\n" +
             "esac\n";
@@ -1752,40 +1573,6 @@ public class LauncherCtlApiServer {
         if (lower.contains("permission required")) return false;
         if (lower.contains("no privileged backend")) return false;
         return true;
-    }
-
-    private Integer readOptionalInteger(JSONObject json, String... keys) {
-        if (json == null || keys == null) return null;
-        for (String key : keys) {
-            if (key == null || key.isEmpty() || !json.has(key) || json.isNull(key)) {
-                continue;
-            }
-            Object value = json.opt(key);
-            if (value instanceof Number) {
-                return ((Number) value).intValue();
-            }
-            String text = String.valueOf(value).trim();
-            if (text.isEmpty()) return null;
-            try {
-                return Integer.parseInt(text);
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    private Integer parseFirstInteger(String text) {
-        if (text == null) return null;
-        Matcher matcher = Pattern.compile("-?\\d+").matcher(text);
-        if (matcher.find()) {
-            try {
-                return Integer.parseInt(matcher.group());
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-        return null;
     }
 
     private void cleanupSocket() {
