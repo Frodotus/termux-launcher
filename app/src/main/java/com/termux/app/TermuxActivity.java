@@ -100,6 +100,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -346,6 +347,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private static final int IME_MARGIN_JITTER_THRESHOLD_DP = 20;
     private static final long IME_MARGIN_APPLY_DEBOUNCE_MS = 120L;
     private static final long IME_MARGIN_APPLY_DELAY_MS = 90L;
+    private static final String PROP_DEBUG_DEFER_SIZE_DURING_IME = "launcher-debug-defer-size-during-ime";
+    private static final String PROP_DEBUG_COALESCE_TERMINAL_INVALIDATE = "launcher-debug-coalesce-terminal-invalidate";
+    private static final String PROP_DEBUG_PROBE_BLUR_LAYER = "launcher-debug-probe-blur-layer";
+    private static final String PROP_DEBUG_RENDER_DIAGNOSTICS = "launcher-debug-render-diagnostics";
+    private boolean mDebugDeferSizeDuringIme = true;
+    private boolean mDebugCoalesceTerminalInvalidate = true;
+    private boolean mDebugProbeBlurLayer = true;
+    private boolean mDebugRenderDiagnostics;
+    private long mImeDiagWindowStartMs;
+    private int mImeDiagOnApplyCount;
+    private int mImeDiagOnProgressCount;
+    private int mImeDiagMarginApplyCount;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -386,6 +399,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTermuxActivityRootView.setOnApplyWindowInsetsListener(new TermuxActivityRootView.WindowInsetsListener());
         View content = findViewById(android.R.id.content);
         content.setOnApplyWindowInsetsListener((v, insets) -> {
+            mImeDiagOnApplyCount++;
+            maybeLogImeDiagnostics();
             WindowInsetsCompat insetsCompat = WindowInsetsCompat.toWindowInsetsCompat(insets, v);
             mNavBarHeight = insetsCompat.getInsets(Type.systemBars()).bottom;
             mStatusBarInsetTop = insetsCompat.getInsets(Type.statusBars()).top;
@@ -406,7 +421,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             @Override
             public void onPrepare(@NonNull WindowInsetsAnimationCompat animation) {
                 mImeInsetsAnimationRunning = true;
-                if (mTerminalView != null && shouldUseImeInsetsMarginAdjustment()) {
+                if (mDebugDeferSizeDuringIme && mTerminalView != null && shouldUseImeInsetsMarginAdjustment()) {
                     mTerminalView.setDeferSizeUpdate(true);
                 }
             }
@@ -415,6 +430,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             @Override
             public WindowInsetsCompat onProgress(@NonNull WindowInsetsCompat insets,
                                                  @NonNull List<WindowInsetsAnimationCompat> runningAnimations) {
+                mImeDiagOnProgressCount++;
+                maybeLogImeDiagnostics();
                 if (shouldUseImeInsetsMarginAdjustment()) {
                     int imeInsetBottom = insets.getInsets(Type.ime()).bottom;
                     mImeBottomInsetPx = Math.max(0, imeInsetBottom - mNavBarHeight);
@@ -639,7 +656,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         float barAlpha = mPreferences.getAppBarOpacity() / 100f;
         int blurRadiusDp = mPreferences.getExtraKeysBlurRadius();
         applyRealtimeBlurRadius(extraKeysBackgroundBlur, blurRadiusDp);
-        applyRealtimeBlurRadius(bottomSpaceBlur, blurRadiusDp);
+        if (mDebugProbeBlurLayer) {
+            applyRealtimeBlurRadius(bottomSpaceBlur, blurRadiusDp);
+        }
         // App bar uses the combined extra-keys background surface.
 
         if (!isToolbarShown) {
@@ -676,7 +695,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             updateViewVisibility(extraKeysBackgroundBlur, isBlurEnabled);
         }
         if (bottomSpaceBlur != null) {
-            updateViewVisibility(bottomSpaceBlur, isBlurEnabled);
+            updateViewVisibility(bottomSpaceBlur, isBlurEnabled && mDebugProbeBlurLayer);
         }
     }
 
@@ -816,6 +835,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         marginLayoutParams.bottomMargin = targetMargin;
         mTermuxActivityRootView.setLayoutParams(marginLayoutParams);
         mLastImeMarginApplyTimeMs = now;
+        mImeDiagMarginApplyCount++;
+        maybeLogImeDiagnostics();
 
         if (mPreferences != null && mPreferences.isTerminalViewKeyLoggingEnabled()) {
             Logger.logVerbose(LOG_TAG, "IME margin apply: target=" + targetMargin +
@@ -1028,8 +1049,82 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private void reloadProperties() {
         mProperties.loadTermuxPropertiesFromDisk();
+        refreshDebugRenderFlagsFromProperties();
+        applyDebugRenderFlagsToViews();
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onReloadProperties();
+    }
+
+    private void refreshDebugRenderFlagsFromProperties() {
+        if (mProperties == null) {
+            return;
+        }
+        mDebugDeferSizeDuringIme = getBooleanPropertyOrDefault(PROP_DEBUG_DEFER_SIZE_DURING_IME, true);
+        mDebugCoalesceTerminalInvalidate = getBooleanPropertyOrDefault(PROP_DEBUG_COALESCE_TERMINAL_INVALIDATE, true);
+        mDebugProbeBlurLayer = getBooleanPropertyOrDefault(PROP_DEBUG_PROBE_BLUR_LAYER, true);
+        mDebugRenderDiagnostics = getBooleanPropertyOrDefault(PROP_DEBUG_RENDER_DIAGNOSTICS, false);
+    }
+
+    private boolean getBooleanPropertyOrDefault(@NonNull String key, boolean defaultValue) {
+        if (mProperties == null) {
+            return defaultValue;
+        }
+        String value = mProperties.getProperty(key, false);
+        if (DataUtils.isNullOrEmpty(value)) {
+            return defaultValue;
+        }
+        String normalized = value.trim().toLowerCase(Locale.US);
+        if ("true".equals(normalized)) {
+            return true;
+        }
+        if ("false".equals(normalized)) {
+            return false;
+        }
+        Logger.logWarn(LOG_TAG, "Ignoring invalid boolean for " + key + ": " + value);
+        return defaultValue;
+    }
+
+    private void applyDebugRenderFlagsToViews() {
+        if (mTerminalView != null) {
+            mTerminalView.setCoalesceScreenInvalidates(mDebugCoalesceTerminalInvalidate);
+            mTerminalView.setRenderDiagnosticsEnabled(mDebugRenderDiagnostics);
+        }
+        if (!mDebugRenderDiagnostics) {
+            mImeDiagWindowStartMs = 0L;
+            mImeDiagOnApplyCount = 0;
+            mImeDiagOnProgressCount = 0;
+            mImeDiagMarginApplyCount = 0;
+        }
+        Logger.logDebug(LOG_TAG, "Render debug flags: defer_size_during_ime=" + mDebugDeferSizeDuringIme
+            + ", coalesce_invalidate=" + mDebugCoalesceTerminalInvalidate
+            + ", probe_blur=" + mDebugProbeBlurLayer
+            + ", diagnostics=" + mDebugRenderDiagnostics);
+    }
+
+    private void maybeLogImeDiagnostics() {
+        if (!mDebugRenderDiagnostics) {
+            return;
+        }
+        long now = SystemClock.uptimeMillis();
+        if (mImeDiagWindowStartMs == 0L) {
+            mImeDiagWindowStartMs = now;
+            return;
+        }
+        long elapsed = now - mImeDiagWindowStartMs;
+        if (elapsed < 1000L) {
+            return;
+        }
+        Logger.logDebug(LOG_TAG, "ime-diag/1s applyInsets=" + mImeDiagOnApplyCount
+            + " progress=" + mImeDiagOnProgressCount
+            + " marginApply=" + mImeDiagMarginApplyCount
+            + " imeInset=" + mImeBottomInsetPx
+            + " navInset=" + mNavBarHeight
+            + " animating=" + mImeInsetsAnimationRunning
+            + " deferSizeFlag=" + mDebugDeferSizeDuringIme);
+        mImeDiagWindowStartMs = now;
+        mImeDiagOnApplyCount = 0;
+        mImeDiagOnProgressCount = 0;
+        mImeDiagMarginApplyCount = 0;
     }
 
     private void setActivityThemeAndWindow() {
@@ -1838,6 +1933,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalViewClient.onCreate();
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onCreate();
+        applyDebugRenderFlagsToViews();
     }
 
     private void setTermuxSessionsListView() {
