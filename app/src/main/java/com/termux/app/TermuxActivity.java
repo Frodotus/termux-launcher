@@ -90,7 +90,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsAnimationCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsCompat.Type;
@@ -100,8 +99,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Properties;
 import java.util.Set;
 
 /**
@@ -258,7 +255,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private float mTerminalToolbarDefaultHeight;
     private final Handler mAzGestureHandler = new Handler(Looper.getMainLooper());
-    @Nullable private Runnable mPendingImeMarginApplyRunnable;
     private enum AzGestureMode {
         IDLE,
         AZ_TRACKING,
@@ -339,27 +335,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private int mStatusBarInsetTop;
     private boolean mSeamlessStatusBackgroundActive;
     private long mLastEmptySessionRecoveryElapsedMs;
-    private int mImeBottomInsetPx;
-    private int mPendingImeBottomInsetPx;
-    private boolean mImeInsetsAnimationRunning;
-    private long mLastImeMarginApplyTimeMs;
-    private static final int IME_MARGIN_SMALL_THRESHOLD_DP = 16;
-    private static final int IME_MARGIN_MAX_DP = 240;
-    private static final int IME_MARGIN_JITTER_THRESHOLD_DP = 20;
-    private static final long IME_MARGIN_APPLY_DEBOUNCE_MS = 120L;
-    private static final long IME_MARGIN_APPLY_DELAY_MS = 90L;
-    private static final String PROP_DEBUG_DEFER_SIZE_DURING_IME = "launcher-debug-defer-size-during-ime";
-    private static final String PROP_DEBUG_COALESCE_TERMINAL_INVALIDATE = "launcher-debug-coalesce-terminal-invalidate";
-    private static final String PROP_DEBUG_PROBE_BLUR_LAYER = "launcher-debug-probe-blur-layer";
-    private static final String PROP_DEBUG_RENDER_DIAGNOSTICS = "launcher-debug-render-diagnostics";
-    private boolean mDebugDeferSizeDuringIme = true;
-    private boolean mDebugCoalesceTerminalInvalidate = true;
-    private boolean mDebugProbeBlurLayer = true;
-    private boolean mDebugRenderDiagnostics;
-    private long mImeDiagWindowStartMs;
-    private int mImeDiagOnApplyCount;
-    private int mImeDiagOnProgressCount;
-    private int mImeDiagMarginApplyCount;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -400,57 +375,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTermuxActivityRootView.setOnApplyWindowInsetsListener(new TermuxActivityRootView.WindowInsetsListener());
         View content = findViewById(android.R.id.content);
         content.setOnApplyWindowInsetsListener((v, insets) -> {
-            mImeDiagOnApplyCount++;
-            maybeLogImeDiagnostics();
             WindowInsetsCompat insetsCompat = WindowInsetsCompat.toWindowInsetsCompat(insets, v);
             mNavBarHeight = insetsCompat.getInsets(Type.systemBars()).bottom;
             mStatusBarInsetTop = insetsCompat.getInsets(Type.statusBars()).top;
-            int imeInsetBottom = insetsCompat.getInsets(Type.ime()).bottom;
-            mImeBottomInsetPx = Math.max(0, imeInsetBottom - mNavBarHeight);
-            mPendingImeBottomInsetPx = mImeBottomInsetPx;
             applyTerminalStatusBarInset(mSeamlessStatusBackgroundActive ? mStatusBarInsetTop : 0);
-            if (mPreferences != null && mPreferences.isTerminalMarginAdjustmentEnabled() && shouldUseImeInsetsMarginAdjustment()) {
-                if (!mImeInsetsAnimationRunning) {
-                    scheduleImeDrivenRootBottomMarginApply(mImeBottomInsetPx);
-                }
-            }
             return insetsCompat.toWindowInsets();
-        });
-        ViewCompat.setWindowInsetsAnimationCallback(content, new WindowInsetsAnimationCompat.Callback(
-            WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_STOP
-        ) {
-            @Override
-            public void onPrepare(@NonNull WindowInsetsAnimationCompat animation) {
-                mImeInsetsAnimationRunning = true;
-                if (mDebugDeferSizeDuringIme && mTerminalView != null && shouldUseImeInsetsMarginAdjustment()) {
-                    mTerminalView.setDeferSizeUpdate(true);
-                }
-            }
-
-            @NonNull
-            @Override
-            public WindowInsetsCompat onProgress(@NonNull WindowInsetsCompat insets,
-                                                 @NonNull List<WindowInsetsAnimationCompat> runningAnimations) {
-                mImeDiagOnProgressCount++;
-                maybeLogImeDiagnostics();
-                if (shouldUseImeInsetsMarginAdjustment()) {
-                    int imeInsetBottom = insets.getInsets(Type.ime()).bottom;
-                    mImeBottomInsetPx = Math.max(0, imeInsetBottom - mNavBarHeight);
-                    mPendingImeBottomInsetPx = mImeBottomInsetPx;
-                }
-                return insets;
-            }
-
-            @Override
-            public void onEnd(@NonNull WindowInsetsAnimationCompat animation) {
-                mImeInsetsAnimationRunning = false;
-                if (mTerminalView != null) {
-                    mTerminalView.setDeferSizeUpdate(false);
-                }
-                if (mPreferences != null && mPreferences.isTerminalMarginAdjustmentEnabled() && shouldUseImeInsetsMarginAdjustment()) {
-                    scheduleImeDrivenRootBottomMarginApply(mPendingImeBottomInsetPx);
-                }
-            }
         });
         applySeamlessStatusBackgroundModeIfNeeded();
         ViewCompat.requestApplyInsets(content);
@@ -528,15 +457,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalViewClient.onStart();
     
         if (mPreferences.isTerminalMarginAdjustmentEnabled()) {
-            if (shouldUseImeInsetsMarginAdjustment()) {
-                removeTermuxActivityRootViewGlobalLayoutListener();
-                applyImeDrivenRootBottomMargin(mImeBottomInsetPx);
-            } else {
-                addTermuxActivityRootViewGlobalLayoutListener();
-            }
-        }
-        if (mTerminalView != null) {
-            mTerminalView.setDeferSizeUpdate(false);
+            addTermuxActivityRootViewGlobalLayoutListener();
         }
 
         if (mPreferences.isMonetBackgroundEnabled()) {
@@ -657,46 +578,70 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         float barAlpha = mPreferences.getAppBarOpacity() / 100f;
         int blurRadiusDp = mPreferences.getExtraKeysBlurRadius();
         applyRealtimeBlurRadius(extraKeysBackgroundBlur, blurRadiusDp);
-        if (mDebugProbeBlurLayer) {
-            applyRealtimeBlurRadius(bottomSpaceBlur, blurRadiusDp);
-        }
+        applyRealtimeBlurRadius(bottomSpaceBlur, blurRadiusDp);
         // App bar uses the combined extra-keys background surface.
 
         if (!isToolbarShown) {
-            updateViewVisibility(accessoryContainer, false);
-            updateViewVisibility(extraKeysBackgroundBlur, false);
-            updateViewVisibility(extraKeysBackground, false);
-            updateViewVisibility(bottomSpaceBackground, false);
-            updateViewVisibility(bottomSpaceBlur, false);
-            updateViewVisibility(appsBarViewPager, false);
-            updateViewVisibility(azRow, false);
-            updateViewVisibility(azFxOverlay, false);
-            updateViewVisibility(azFxUnderlay, false);
+            if (accessoryContainer != null) {
+                accessoryContainer.setVisibility(View.GONE);
+            }
+            if (extraKeysBackgroundBlur != null) {
+                extraKeysBackgroundBlur.setVisibility(View.GONE);
+            }
+            if (extraKeysBackground != null) {
+                extraKeysBackground.setVisibility(View.GONE);
+            }
+            if (bottomSpaceBackground != null) {
+                bottomSpaceBackground.setVisibility(View.GONE);
+            }
+            if (bottomSpaceBlur != null) {
+                bottomSpaceBlur.setVisibility(View.GONE);
+            }
+            if (appsBarViewPager != null) {
+                appsBarViewPager.setVisibility(View.GONE);
+            }
+            if (azRow != null) {
+                azRow.setVisibility(View.GONE);
+            }
+            if (azFxOverlay != null) {
+                azFxOverlay.setVisibility(View.GONE);
+            }
+            if (azFxUnderlay != null) {
+                azFxUnderlay.setVisibility(View.GONE);
+            }
             return;
         }
 
-        updateViewVisibility(accessoryContainer, true);
-        updateViewVisibility(appsBarViewPager, true);
-        if (azRow != null) {
-            updateViewVisibility(azRow, mPreferences.isAppLauncherAzRowEnabled());
+        if (accessoryContainer != null) {
+            accessoryContainer.setVisibility(View.VISIBLE);
         }
-        updateViewVisibility(azFxUnderlay, true);
-        updateViewVisibility(azFxOverlay, true);
+        if (appsBarViewPager != null) {
+            appsBarViewPager.setVisibility(View.VISIBLE);
+        }
+        if (azRow != null) {
+            azRow.setVisibility(mPreferences.isAppLauncherAzRowEnabled() ? View.VISIBLE : View.GONE);
+        }
+        if (azFxUnderlay != null) {
+            azFxUnderlay.setVisibility(View.VISIBLE);
+        }
+        if (azFxOverlay != null) {
+            azFxOverlay.setVisibility(View.VISIBLE);
+        }
 
         if (extraKeysBackground != null) {
-            updateViewVisibility(extraKeysBackground, true);
-            updateViewAlpha(extraKeysBackground, isBlurEnabled ? barAlpha : 1.0f);
+            extraKeysBackground.setVisibility(View.VISIBLE);
+            extraKeysBackground.setAlpha(isBlurEnabled ? barAlpha : 1.0f);
         }
         if (bottomSpaceBackground != null) {
-            updateViewVisibility(bottomSpaceBackground, true);
-            updateViewAlpha(bottomSpaceBackground, isBlurEnabled ? barAlpha : 1.0f);
+            bottomSpaceBackground.setVisibility(View.VISIBLE);
+            bottomSpaceBackground.setAlpha(isBlurEnabled ? barAlpha : 1.0f);
         }
 
         if (extraKeysBackgroundBlur != null) {
-            updateViewVisibility(extraKeysBackgroundBlur, isBlurEnabled);
+            extraKeysBackgroundBlur.setVisibility(isBlurEnabled ? View.VISIBLE : View.GONE);
         }
         if (bottomSpaceBlur != null) {
-            updateViewVisibility(bottomSpaceBlur, isBlurEnabled && mDebugProbeBlurLayer);
+            bottomSpaceBlur.setVisibility(isBlurEnabled ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -788,79 +733,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mTermuxActivityRootView.setLayoutParams(marginLayoutParams);
             }
         }
+        mTermuxActivityRootView.marginBottom = 0;
+        mTermuxActivityRootView.lastMarginBottom = null;
         mTermuxActivityRootView.lastMarginBottomTime = 0L;
         mTermuxActivityRootView.lastMarginBottomExtraTime = 0L;
-        mLastImeMarginApplyTimeMs = 0L;
-        if (mPreferences != null && mPreferences.isTerminalMarginAdjustmentEnabled() && shouldUseImeInsetsMarginAdjustment()) {
-            applyImeDrivenRootBottomMargin(mImeBottomInsetPx);
-        }
-    }
-
-    private boolean shouldUseImeInsetsMarginAdjustment() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R;
-    }
-
-    private void applyImeDrivenRootBottomMargin(int imeBottomInsetPx) {
-        if (mTermuxActivityRootView == null) {
-            return;
-        }
-
-        int smallThresholdPx = (int) ViewUtils.dpToPx(this, IME_MARGIN_SMALL_THRESHOLD_DP);
-        int maxMarginPx = (int) ViewUtils.dpToPx(this, IME_MARGIN_MAX_DP);
-        int jitterThresholdPx = (int) ViewUtils.dpToPx(this, IME_MARGIN_JITTER_THRESHOLD_DP);
-
-        int targetMargin = imeBottomInsetPx;
-        if (targetMargin > 0 && targetMargin <= smallThresholdPx) {
-            targetMargin = 0;
-        } else if (targetMargin > maxMarginPx) {
-            targetMargin = maxMarginPx;
-        }
-
-        ViewGroup.LayoutParams layoutParams = mTermuxActivityRootView.getLayoutParams();
-        if (!(layoutParams instanceof ViewGroup.MarginLayoutParams)) {
-            return;
-        }
-        ViewGroup.MarginLayoutParams marginLayoutParams = (ViewGroup.MarginLayoutParams) layoutParams;
-        int currentMargin = marginLayoutParams.bottomMargin;
-        if (currentMargin == targetMargin) {
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-        if (currentMargin > 0 && targetMargin > 0 &&
-            Math.abs(currentMargin - targetMargin) <= jitterThresholdPx &&
-            (now - mLastImeMarginApplyTimeMs) < IME_MARGIN_APPLY_DEBOUNCE_MS) {
-            return;
-        }
-
-        marginLayoutParams.bottomMargin = targetMargin;
-        mTermuxActivityRootView.setLayoutParams(marginLayoutParams);
-        mLastImeMarginApplyTimeMs = now;
-        mImeDiagMarginApplyCount++;
-        maybeLogImeDiagnostics();
-
-        if (mPreferences != null && mPreferences.isTerminalViewKeyLoggingEnabled()) {
-            Logger.logVerbose(LOG_TAG, "IME margin apply: target=" + targetMargin +
-                ", imeInset=" + imeBottomInsetPx + ", nav=" + mNavBarHeight);
-        }
-    }
-
-    private void scheduleImeDrivenRootBottomMarginApply(int imeBottomInsetPx) {
-        if (mPendingImeMarginApplyRunnable != null) {
-            mAzGestureHandler.removeCallbacks(mPendingImeMarginApplyRunnable);
-            mPendingImeMarginApplyRunnable = null;
-        }
-
-        final int targetInset = imeBottomInsetPx;
-        Runnable runnable = () -> {
-            mPendingImeMarginApplyRunnable = null;
-            if (mPreferences != null && mPreferences.isTerminalMarginAdjustmentEnabled() && shouldUseImeInsetsMarginAdjustment()) {
-                applyImeDrivenRootBottomMargin(targetInset);
-            }
-        };
-
-        mPendingImeMarginApplyRunnable = runnable;
-        mAzGestureHandler.postDelayed(runnable, IME_MARGIN_APPLY_DELAY_MS);
     }
 
     private void applyBackgroundLayerTopInset(int viewId, int insetTop) {
@@ -904,14 +780,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         unregisterTermuxActivityBroadcastReceiver();
         unregisterPackageChangeReceiver();
         unregisterLauncherAppsCallback();
-        mImeInsetsAnimationRunning = false;
-        if (mTerminalView != null) {
-            mTerminalView.setDeferSizeUpdate(false);
-        }
-        if (mPendingImeMarginApplyRunnable != null) {
-            mAzGestureHandler.removeCallbacks(mPendingImeMarginApplyRunnable);
-            mPendingImeMarginApplyRunnable = null;
-        }
         mAzGestureHandler.removeCallbacks(mPackageRefreshRunnable);
         getDrawer().closeDrawers();
     }
@@ -1050,83 +918,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private void reloadProperties() {
         mProperties.loadTermuxPropertiesFromDisk();
-        refreshDebugRenderFlagsFromProperties();
-        applyDebugRenderFlagsToViews();
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onReloadProperties();
-    }
-
-    private void refreshDebugRenderFlagsFromProperties() {
-        if (mProperties == null) {
-            return;
-        }
-        mDebugDeferSizeDuringIme = getBooleanPropertyOrDefault(PROP_DEBUG_DEFER_SIZE_DURING_IME, true);
-        mDebugCoalesceTerminalInvalidate = getBooleanPropertyOrDefault(PROP_DEBUG_COALESCE_TERMINAL_INVALIDATE, true);
-        mDebugProbeBlurLayer = getBooleanPropertyOrDefault(PROP_DEBUG_PROBE_BLUR_LAYER, true);
-        mDebugRenderDiagnostics = getBooleanPropertyOrDefault(PROP_DEBUG_RENDER_DIAGNOSTICS, false);
-    }
-
-    private boolean getBooleanPropertyOrDefault(@NonNull String key, boolean defaultValue) {
-        if (mProperties == null) {
-            return defaultValue;
-        }
-        Properties properties = mProperties.getProperties(false);
-        String value = properties == null ? null : properties.getProperty(key);
-        if (DataUtils.isNullOrEmpty(value)) {
-            return defaultValue;
-        }
-        String normalized = value.trim().toLowerCase(Locale.US);
-        if ("true".equals(normalized)) {
-            return true;
-        }
-        if ("false".equals(normalized)) {
-            return false;
-        }
-        Logger.logWarn(LOG_TAG, "Ignoring invalid boolean for " + key + ": " + value);
-        return defaultValue;
-    }
-
-    private void applyDebugRenderFlagsToViews() {
-        if (mTerminalView != null) {
-            mTerminalView.setCoalesceScreenInvalidates(mDebugCoalesceTerminalInvalidate);
-            mTerminalView.setRenderDiagnosticsEnabled(mDebugRenderDiagnostics);
-        }
-        if (!mDebugRenderDiagnostics) {
-            mImeDiagWindowStartMs = 0L;
-            mImeDiagOnApplyCount = 0;
-            mImeDiagOnProgressCount = 0;
-            mImeDiagMarginApplyCount = 0;
-        }
-        Logger.logDebug(LOG_TAG, "Render debug flags: defer_size_during_ime=" + mDebugDeferSizeDuringIme
-            + ", coalesce_invalidate=" + mDebugCoalesceTerminalInvalidate
-            + ", probe_blur=" + mDebugProbeBlurLayer
-            + ", diagnostics=" + mDebugRenderDiagnostics);
-    }
-
-    private void maybeLogImeDiagnostics() {
-        if (!mDebugRenderDiagnostics) {
-            return;
-        }
-        long now = SystemClock.uptimeMillis();
-        if (mImeDiagWindowStartMs == 0L) {
-            mImeDiagWindowStartMs = now;
-            return;
-        }
-        long elapsed = now - mImeDiagWindowStartMs;
-        if (elapsed < 1000L) {
-            return;
-        }
-        Logger.logDebug(LOG_TAG, "ime-diag/1s applyInsets=" + mImeDiagOnApplyCount
-            + " progress=" + mImeDiagOnProgressCount
-            + " marginApply=" + mImeDiagMarginApplyCount
-            + " imeInset=" + mImeBottomInsetPx
-            + " navInset=" + mNavBarHeight
-            + " animating=" + mImeInsetsAnimationRunning
-            + " deferSizeFlag=" + mDebugDeferSizeDuringIme);
-        mImeDiagWindowStartMs = now;
-        mImeDiagOnApplyCount = 0;
-        mImeDiagOnProgressCount = 0;
-        mImeDiagMarginApplyCount = 0;
     }
 
     private void setActivityThemeAndWindow() {
@@ -1935,7 +1728,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalViewClient.onCreate();
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onCreate();
-        applyDebugRenderFlagsToViews();
     }
 
     private void setTermuxSessionsListView() {
@@ -2045,8 +1837,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
         if (layoutParams == null)
             return;
-        if (layoutParams.height == height)
-            return;
         layoutParams.height = height;
         view.setLayoutParams(layoutParams);
     }
@@ -2062,8 +1852,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
         if (layoutParams == null)
-            return;
-        if (layoutParams.height == height)
             return;
         layoutParams.height = height;
         view.setLayoutParams(layoutParams);
@@ -2101,23 +1889,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void updateViewVisibility(int viewId, boolean isVisible) {
         View view = findViewById(viewId);
         if (view != null) {
-            updateViewVisibility(view, isVisible);
+            view.setVisibility(isVisible ? View.VISIBLE : View.GONE);
         }
     }
     
     private void updateViewVisibility(View view, boolean isVisible) {
         if (view != null) {
-            int target = isVisible ? View.VISIBLE : View.GONE;
-            if (view.getVisibility() != target) {
-                view.setVisibility(target);
-            }
-        }
-    }
-
-    private void updateViewAlpha(View view, float alpha) {
-        if (view == null) return;
-        if (Math.abs(view.getAlpha() - alpha) > 0.001f) {
-            view.setAlpha(alpha);
+            view.setVisibility(isVisible ? View.VISIBLE : View.GONE);
         }
     }
     

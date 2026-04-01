@@ -17,7 +17,6 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.ActionMode;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -170,16 +169,6 @@ public final class TerminalView extends View {
     public final static int KEY_EVENT_SOURCE_SOFT_KEYBOARD = 0;
 
     private static final String LOG_TAG = "TerminalView";
-    private boolean mScreenInvalidateScheduled;
-    private boolean mCoalesceScreenInvalidates = true;
-    private boolean mDeferSizeUpdate;
-    private boolean mPendingDeferredSizeUpdate;
-    private boolean mRenderDiagnosticsEnabled;
-    private long mRenderDiagWindowStartMs;
-    private int mRenderDiagOnSizeChangedCount;
-    private int mRenderDiagUpdateSizeCount;
-    private int mRenderDiagUpdateSizeAppliedCount;
-    private int mRenderDiagOnScreenUpdatedCount;
 
     public TerminalView(Context context, AttributeSet attributes) {
         // NO_UCD (unused code)
@@ -507,8 +496,6 @@ public final class TerminalView extends View {
     }
 
     public void onScreenUpdated(boolean skipScrolling) {
-        mRenderDiagOnScreenUpdatedCount++;
-        maybeLogRenderDiagnostics();
         if (mEmulator == null)
             return;
         int rowsInHistory = mEmulator.getScreen().getActiveTranscriptRows();
@@ -543,7 +530,7 @@ public final class TerminalView extends View {
             mTopRow = 0;
         }
         mEmulator.clearScrollCounter();
-        scheduleScreenInvalidate();
+        invalidate();
         if (mAccessibilityEnabled) {
             // fire off events that the content of this control changed,
             // so that the accessibility service gets the updated text
@@ -1296,8 +1283,6 @@ public final class TerminalView extends View {
      */
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        mRenderDiagOnSizeChangedCount++;
-        maybeLogRenderDiagnostics();
         updateSize();
     }
 
@@ -1305,42 +1290,6 @@ public final class TerminalView extends View {
      * Check if the terminal size in rows and columns should be updated.
      */
     public void updateSize() {
-        if (mDeferSizeUpdate) {
-            mPendingDeferredSizeUpdate = true;
-            return;
-        }
-        updateSizeInternal();
-    }
-
-    public void setDeferSizeUpdate(boolean defer) {
-        if (mDeferSizeUpdate == defer) {
-            return;
-        }
-        mDeferSizeUpdate = defer;
-        if (!defer && mPendingDeferredSizeUpdate) {
-            mPendingDeferredSizeUpdate = false;
-            updateSizeInternal();
-        }
-    }
-
-    public void setCoalesceScreenInvalidates(boolean enable) {
-        mCoalesceScreenInvalidates = enable;
-    }
-
-    public void setRenderDiagnosticsEnabled(boolean enable) {
-        mRenderDiagnosticsEnabled = enable;
-        if (!enable) {
-            mRenderDiagWindowStartMs = 0L;
-            mRenderDiagOnSizeChangedCount = 0;
-            mRenderDiagUpdateSizeCount = 0;
-            mRenderDiagUpdateSizeAppliedCount = 0;
-            mRenderDiagOnScreenUpdatedCount = 0;
-        }
-    }
-
-    private void updateSizeInternal() {
-        mRenderDiagUpdateSizeCount++;
-        maybeLogRenderDiagnostics();
         int viewWidth = getWidth();
         int viewHeight = getHeight();
         if (viewWidth == 0 || viewHeight == 0 || mTermSession == null)
@@ -1349,8 +1298,6 @@ public final class TerminalView extends View {
         int newColumns = Math.max(4, (int) (viewWidth / mRenderer.mFontWidth));
         int newRows = Math.max(4, (viewHeight - mRenderer.mFontLineSpacingAndAscent) / mRenderer.mFontLineSpacing);
         if (mEmulator == null || (newColumns != mEmulator.mColumns || newRows != mEmulator.mRows)) {
-            mRenderDiagUpdateSizeAppliedCount++;
-            maybeLogRenderDiagnostics();
             mTermSession.updateSize(newColumns, newRows, (int) mRenderer.getFontWidth(), mRenderer.getFontLineSpacing());
             mEmulator = mTermSession.getEmulator();
             mClient.onEmulatorSet();
@@ -1365,7 +1312,6 @@ public final class TerminalView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        mScreenInvalidateScheduled = false;
         if (mEmulator == null) {
             canvas.drawColor(0XFF000000);
         } else {
@@ -1378,49 +1324,6 @@ public final class TerminalView extends View {
             // render the text selection handles
             renderTextSelection();
         }
-    }
-
-    private void scheduleScreenInvalidate() {
-        if (!mCoalesceScreenInvalidates) {
-            invalidate();
-            return;
-        }
-        if (mScreenInvalidateScheduled) {
-            return;
-        }
-        mScreenInvalidateScheduled = true;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-            postInvalidateOnAnimation();
-        } else {
-            postInvalidate();
-        }
-    }
-
-    private void maybeLogRenderDiagnostics() {
-        if (!mRenderDiagnosticsEnabled) {
-            return;
-        }
-        long now = SystemClock.uptimeMillis();
-        if (mRenderDiagWindowStartMs == 0L) {
-            mRenderDiagWindowStartMs = now;
-            return;
-        }
-        long elapsed = now - mRenderDiagWindowStartMs;
-        if (elapsed < 1000L) {
-            return;
-        }
-        Log.d(LOG_TAG, "diag/1s sizeChanged=" + mRenderDiagOnSizeChangedCount
-            + " updateSizeCalls=" + mRenderDiagUpdateSizeCount
-            + " updateSizeApplied=" + mRenderDiagUpdateSizeAppliedCount
-            + " onScreenUpdated=" + mRenderDiagOnScreenUpdatedCount
-            + " deferSize=" + mDeferSizeUpdate
-            + " coalesceInvalidate=" + mCoalesceScreenInvalidates
-            + " view=" + getWidth() + "x" + getHeight());
-        mRenderDiagWindowStartMs = now;
-        mRenderDiagOnSizeChangedCount = 0;
-        mRenderDiagUpdateSizeCount = 0;
-        mRenderDiagUpdateSizeAppliedCount = 0;
-        mRenderDiagOnScreenUpdatedCount = 0;
     }
 
     public TerminalSession getCurrentSession() {

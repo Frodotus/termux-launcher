@@ -12,7 +12,6 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.view.WindowInsetsCompat;
 
@@ -51,8 +50,8 @@ import com.termux.shared.view.ViewUtils;
  * This overlap may happen even without `enforce-char-based-input=true` for keyboards with extended layouts
  * like number row, etc.
  *
- * To fix these issues, `activity_termux.xml` has a transparent 1dp
- * `activity_termux_bottom_space_view` probe view at the bottom.
+ * To fix these issues, `activity_termux.xml` has a transparent
+ * `activity_termux_bottom_space_view` probe view at the bottom that does not consume visible height.
  * When {@link TermuxActivity} {@link ViewTreeObserver.OnGlobalLayoutListener} is
  * called when any of the sub view layouts change,  like keyboard opening/closing keyboard,
  * extra keys/input view switched, etc, we check if the bottom space view is visible or not.
@@ -65,11 +64,10 @@ import com.termux.shared.view.ViewUtils;
 public class TermuxActivityRootView extends LinearLayout implements ViewTreeObserver.OnGlobalLayoutListener {
 
     public TermuxActivity mActivity;
+    public Integer marginBottom;
+    public Integer lastMarginBottom;
     public long lastMarginBottomTime;
     public long lastMarginBottomExtraTime;
-    private long lastMarginApplyTime;
-    private int mGlobalLayoutInvocationCount;
-    private int mMarginApplyCount;
 
     /** Log root view events. */
     private boolean ROOT_VIEW_LOGGING_ENABLED = false;
@@ -77,10 +75,6 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
     private static final String LOG_TAG = "TermuxActivityRootView";
 
     private static int mStatusBarHeight;
-    private static final int SMALL_MARGIN_THRESHOLD_DP = 16;
-    private static final int MAX_MARGIN_ADJUSTMENT_DP = 240;
-    private static final int JITTER_DELTA_THRESHOLD_DP = 28;
-    private static final long MARGIN_APPLY_DEBOUNCE_MS = 140L;
 
     public TermuxActivityRootView(Context context) {
         super(context);
@@ -108,6 +102,21 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
     }
 
     @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+
+        if (marginBottom != null) {
+            if (ROOT_VIEW_LOGGING_ENABLED)
+                Logger.logVerbose(LOG_TAG, "onMeasure: Setting bottom margin to " + marginBottom);
+            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) getLayoutParams();
+            params.setMargins(0, 0, 0, marginBottom);
+            setLayoutParams(params);
+            marginBottom = null;
+            requestLayout();
+        }
+    }
+
+    @Override
     public void onGlobalLayout() {
         if (mActivity == null || !mActivity.isVisible()) return;
 
@@ -115,7 +124,6 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
         if (bottomSpaceView == null) return;
 
         boolean root_view_logging_enabled = ROOT_VIEW_LOGGING_ENABLED;
-        mGlobalLayoutInvocationCount++;
 
         if (root_view_logging_enabled)
             Logger.logVerbose(LOG_TAG, ":\nonGlobalLayout:");
@@ -170,7 +178,7 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
                 // and prevents some infinite loops
                 if ((System.currentTimeMillis() - lastMarginBottomTime) > 40) {
                     lastMarginBottomTime = System.currentTimeMillis();
-                    applyBottomMarginIfNeeded(params, 0, "visible_due_to_margin", root_view_logging_enabled);
+                    marginBottom = 0;
                 } else {
                     if (root_view_logging_enabled)
                         Logger.logVerbose(LOG_TAG, "Ignoring restoring marginBottom to 0 since called to quickly");
@@ -190,6 +198,8 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
                     if (root_view_logging_enabled)
                         Logger.logVerbose(LOG_TAG, "Resetting margin since visible due to extra margin");
                     lastMarginBottomExtraTime = System.currentTimeMillis();
+                    // lastMarginBottom must be invalid. May also happen when keyboards are changed.
+                    lastMarginBottom = null;
                     setMargin = true;
                 } else {
                     if (root_view_logging_enabled)
@@ -198,39 +208,30 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
             }
 
             if (setMargin) {
-                applyBottomMarginIfNeeded(params, 0, "visible_reset", root_view_logging_enabled);
+                if (root_view_logging_enabled)
+                    Logger.logVerbose(LOG_TAG, "Setting bottom margin to 0");
+                params.setMargins(0, 0, 0, 0);
+                setLayoutParams(params);
             } else {
                 if (root_view_logging_enabled)
                     Logger.logVerbose(LOG_TAG, "Bottom margin already equals 0");
+                // This is done so that when next time onMeasure() is called, lastMarginBottom is used.
+                // This is done since we **expect** the keyboard to have same dimensions next time layout
+                // changes, so best set margin while view is drawn the first time, otherwise it will
+                // cause a jitter when OnGlobalLayoutListener is called with margin 0 and it sets the
+                // likely same lastMarginBottom again and requesting a redraw. Hopefully, this logic
+                // works fine for all cases.
+                marginBottom = lastMarginBottom;
             }
         }
         // ELse find the part of the extra keys/terminal that is hidden and add a margin accordingly
         else {
             int pxHidden = bottomSpaceViewRect.bottom - windowAvailableRect.bottom;
-            // Avoid tiny margin oscillations that can cause flicker during keyboard transitions.
-            int smallMarginThresholdPx = (int) ViewUtils.dpToPx(getContext(), SMALL_MARGIN_THRESHOLD_DP);
-            if (pxHidden > 0 && pxHidden <= smallMarginThresholdPx) {
-                pxHidden = 0;
-            }
-            // Guard against pathological IME measurements that can push content too far.
-            int maxMarginPx = (int) ViewUtils.dpToPx(getContext(), MAX_MARGIN_ADJUSTMENT_DP);
-            if (pxHidden > maxMarginPx) {
-                pxHidden = maxMarginPx;
-            }
 
             if (root_view_logging_enabled)
                 Logger.logVerbose(LOG_TAG, "pxHidden " + pxHidden + ", bottom " + params.bottomMargin);
 
             boolean setMargin = params.bottomMargin != pxHidden;
-            // Debounce small, rapid margin churn while IME candidate/suggestion rows animate.
-            int jitterDeltaPx = (int) ViewUtils.dpToPx(getContext(), JITTER_DELTA_THRESHOLD_DP);
-            long now = System.currentTimeMillis();
-            if (params.bottomMargin > 0 && pxHidden > 0 &&
-                Math.abs(pxHidden - params.bottomMargin) <= jitterDeltaPx &&
-                (now - lastMarginApplyTime) < MARGIN_APPLY_DEBOUNCE_MS) {
-                setMargin = false;
-                pxHidden = params.bottomMargin;
-            }
 
             // If invisible despite margin, i.e a margin was added, but the bottom of bottomSpaceViewRect
             // is still below that of windowAvailableRect, this will trigger OnGlobalLayoutListener
@@ -259,28 +260,15 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
 
 
             if (setMargin) {
-                applyBottomMarginIfNeeded(params, pxHidden, "hidden_adjust", root_view_logging_enabled);
-                lastMarginApplyTime = now;
+                if (root_view_logging_enabled)
+                    Logger.logVerbose(LOG_TAG, "Setting bottom margin to " + pxHidden);
+                params.setMargins(0, 0, 0, pxHidden);
+                setLayoutParams(params);
+                lastMarginBottom = pxHidden;
             } else {
                 if (root_view_logging_enabled)
                     Logger.logVerbose(LOG_TAG, "Bottom margin already equals " + pxHidden);
             }
-        }
-    }
-
-    private void applyBottomMarginIfNeeded(@NonNull FrameLayout.LayoutParams params, int targetBottomMargin,
-                                           @NonNull String reason, boolean rootViewLoggingEnabled) {
-        if (params.bottomMargin == targetBottomMargin) {
-            return;
-        }
-        params.setMargins(0, 0, 0, targetBottomMargin);
-        setLayoutParams(params);
-        mMarginApplyCount++;
-        if (rootViewLoggingEnabled) {
-            Logger.logVerbose(LOG_TAG, "applyBottomMarginIfNeeded: reason=" + reason +
-                ", target=" + targetBottomMargin +
-                ", applyCount=" + mMarginApplyCount +
-                ", layoutCount=" + mGlobalLayoutInvocationCount);
         }
     }
 
