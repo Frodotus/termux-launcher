@@ -612,6 +612,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (azFxUnderlay != null) {
                 azFxUnderlay.setVisibility(View.GONE);
             }
+            resetAzOverflowAffordanceState();
             return;
         }
 
@@ -673,8 +674,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         int downsampleFactor = mPreferences.getTerminalBlurDownsampleFactor();
         applyRealtimeBlurRadius(blurView, blurRadiusDp);
         applyRealtimeBlurDownsampleFactor(blurView, downsampleFactor);
-        boolean accessoryBlurActive = mPreferences.shouldShowTerminalToolbar() && mPreferences.isExtraKeysBlurEnabled();
-        blurView.setVisibility((blurRadiusDp > 0 && !accessoryBlurActive) ? View.VISIBLE : View.GONE);
+        blurView.setVisibility(blurRadiusDp > 0 ? View.VISIBLE : View.GONE);
     }
 
     private void applyTerminalGrainOverlay() {
@@ -1508,6 +1508,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mLauncherAzGestureFxOverlayView.setInteractionOverflowState(
                 active, canLeft, canRight, currentPageIndex, pageCount, showPageIndicators, subtlePinnedIndicators
             );
+        }
+    }
+
+    private void resetAzOverflowAffordanceState() {
+        mSuggestionBarInteractionActive = false;
+        if (mLauncherAzGestureFxUnderlayView != null) {
+            mLauncherAzGestureFxUnderlayView.clearDrag(false);
+            mLauncherAzGestureFxUnderlayView.setVisibility(View.GONE);
+        }
+        if (mLauncherAzGestureFxOverlayView != null) {
+            mLauncherAzGestureFxOverlayView.clearDrag(false);
+            mLauncherAzGestureFxOverlayView.setVisibility(View.GONE);
         }
     }
 
