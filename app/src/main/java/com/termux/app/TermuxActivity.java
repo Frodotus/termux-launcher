@@ -33,6 +33,7 @@ import android.view.SubMenu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
+import android.view.ViewTreeObserver;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
@@ -331,10 +332,26 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private static final int SUGGESTION_BAR_MIN_BUTTON_DP = 56;
     private static final int SUGGESTION_BAR_MAX_INPUT_CHARS = 10;
     private static final long EMPTY_SESSION_RECOVERY_DEBOUNCE_MS = 1500L;
+    private static final boolean ACCESSORY_RENDER_TRACE = true;
 
     private int mStatusBarInsetTop;
     private boolean mSeamlessStatusBackgroundActive;
     private long mLastEmptySessionRecoveryElapsedMs;
+    private boolean mAccessoryRenderSyncPending;
+    private boolean mLastImeVisible;
+    @Nullable private String mPendingAccessoryRenderReason;
+    @Nullable private ViewTreeObserver.OnGlobalLayoutListener mAccessoryKeyboardLayoutListener;
+    private long mLastAccessoryRenderSyncUptimeMs;
+    private final Handler mAccessoryRenderHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mAccessoryRenderSyncRunnable = () -> {
+        mAccessoryRenderSyncPending = false;
+        String reason = mPendingAccessoryRenderReason == null ? "unknown" : mPendingAccessoryRenderReason;
+        mPendingAccessoryRenderReason = null;
+        configureExtraKeysBackground();
+        syncTerminalOverlayBottomInsetToAccessoryHeight();
+        enforceAccessoryFxInvariants();
+        logAccessoryRenderSnapshot(reason);
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -459,6 +476,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mPreferences.isTerminalMarginAdjustmentEnabled()) {
             addTermuxActivityRootViewGlobalLayoutListener();
         }
+        addAccessoryKeyboardLayoutListener();
 
         if (mPreferences.isMonetBackgroundEnabled()) {
             configureViewVisibility(R.id.terminal_monetbackground, true);
@@ -471,6 +489,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyTerminalBlurBackground();
         applyTerminalGrainOverlay();
         applySeamlessStatusBackgroundModeIfNeeded();
+        scheduleAccessoryRenderSync("onStart");
     
         registerTermuxActivityBroadcastReceiver();
         registerPackageChangeReceiver();
@@ -506,6 +525,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyTerminalBlurBackground();
         applyTerminalGrainOverlay();
         applySeamlessStatusBackgroundModeIfNeeded();
+        scheduleAccessoryRenderSync("onResume");
         if (mSuggestionBarView != null) {
             mSuggestionBarView.post(this::updateAzOverflowAffordance);
         }
@@ -795,6 +815,23 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
 
+    private void applyBackgroundLayerBottomInset(int viewId, int insetBottom) {
+        View view = findViewById(viewId);
+        if (view == null) {
+            return;
+        }
+        ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
+        if (!(layoutParams instanceof ViewGroup.MarginLayoutParams)) {
+            return;
+        }
+        ViewGroup.MarginLayoutParams marginLayoutParams = (ViewGroup.MarginLayoutParams) layoutParams;
+        int targetBottomMargin = Math.max(0, insetBottom);
+        if (marginLayoutParams.bottomMargin != targetBottomMargin) {
+            marginLayoutParams.bottomMargin = targetBottomMargin;
+            view.setLayoutParams(marginLayoutParams);
+        }
+    }
+
     private void applyTerminalStatusBarInset(int insetTop) {
         int safeInsetTop = Math.max(0, insetTop);
         applyBackgroundLayerTopInset(R.id.terminal_monetbackground, safeInsetTop);
@@ -816,9 +853,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onStop();
         removeTermuxActivityRootViewGlobalLayoutListener();
+        removeAccessoryKeyboardLayoutListener();
         unregisterTermuxActivityBroadcastReceiver();
         unregisterPackageChangeReceiver();
         unregisterLauncherAppsCallback();
+        mAccessoryRenderHandler.removeCallbacks(mAccessoryRenderSyncRunnable);
+        mAccessoryRenderSyncPending = false;
+        mPendingAccessoryRenderReason = null;
         mAzGestureHandler.removeCallbacks(mPackageRefreshRunnable);
         getDrawer().closeDrawers();
     }
@@ -1803,6 +1844,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             savedTextInput = savedInstanceState.getString(ARG_TERMINAL_TOOLBAR_TEXT_INPUT);
         terminalToolbarViewPager.setAdapter(new TerminalToolbarViewPager.PageAdapter(this, savedTextInput));
         terminalToolbarViewPager.addOnPageChangeListener(new TerminalToolbarViewPager.OnPageChangeListener(this, terminalToolbarViewPager));
+        scheduleAccessoryRenderSync("setTerminalToolbarView");
     }
 
     private void updateAppLauncherBarHeight() {
@@ -1881,6 +1923,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             appsBarGapPx
         );
         updateAccessoryStackContainerHeight(accessoryStackContainer, combinedHeight);
+        scheduleAccessoryRenderSync("setTerminalToolbarHeight");
     }
 
     private void updateAccessoryStackContainerHeight(View view, int height) {
@@ -1923,6 +1966,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Logger.showToast(this, showNow ? getString(R.string.msg_enabling_terminal_toolbar) : getString(R.string.msg_disabling_terminal_toolbar), true);
 
         configureExtraKeysBackground();
+        scheduleAccessoryRenderSync("toggleTerminalToolbar");
 
         isToolbarHidden = !showNow;
     
@@ -2516,6 +2560,111 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         mSuggestionBarView.reloadWithInput(input, mTerminalView);
         updateAzOverflowAffordance();
+    }
+
+    private void addAccessoryKeyboardLayoutListener() {
+        View content = findViewById(android.R.id.content);
+        if (content == null || mAccessoryKeyboardLayoutListener != null) {
+            return;
+        }
+        mLastImeVisible = isImeVisible();
+        mAccessoryKeyboardLayoutListener = () -> {
+            boolean imeVisible = isImeVisible();
+            if (imeVisible != mLastImeVisible) {
+                mLastImeVisible = imeVisible;
+                onImeVisibilityChanged(imeVisible);
+            }
+        };
+        content.getViewTreeObserver().addOnGlobalLayoutListener(mAccessoryKeyboardLayoutListener);
+    }
+
+    private void removeAccessoryKeyboardLayoutListener() {
+        View content = findViewById(android.R.id.content);
+        if (content == null || mAccessoryKeyboardLayoutListener == null) {
+            return;
+        }
+        content.getViewTreeObserver().removeOnGlobalLayoutListener(mAccessoryKeyboardLayoutListener);
+        mAccessoryKeyboardLayoutListener = null;
+    }
+
+    private boolean isImeVisible() {
+        View content = findViewById(android.R.id.content);
+        if (content == null) {
+            return false;
+        }
+        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(content);
+        return insets != null && insets.isVisible(Type.ime());
+    }
+
+    private void onImeVisibilityChanged(boolean visible) {
+        if (!visible && !mAzGestureActive) {
+            mSuggestionBarInteractionActive = false;
+            if (mSuggestionBarView != null) {
+                mSuggestionBarView.clearAzPreview();
+            }
+        }
+        scheduleAccessoryRenderSync(visible ? "ime:open" : "ime:close");
+    }
+
+    private void scheduleAccessoryRenderSync(@NonNull String reason) {
+        mPendingAccessoryRenderReason = reason;
+        if (mAccessoryRenderSyncPending) {
+            return;
+        }
+        mAccessoryRenderSyncPending = true;
+        mAccessoryRenderHandler.post(mAccessoryRenderSyncRunnable);
+    }
+
+    private void syncTerminalOverlayBottomInsetToAccessoryHeight() {
+        View accessoryContainer = findViewById(R.id.accessory_stack_container);
+        int insetBottom = 0;
+        if (accessoryContainer != null && accessoryContainer.getVisibility() == View.VISIBLE) {
+            insetBottom = Math.max(0, accessoryContainer.getHeight());
+        }
+        applyBackgroundLayerBottomInset(R.id.terminal_monetbackground, insetBottom);
+        applyBackgroundLayerBottomInset(R.id.terminal_backgroundblur, insetBottom);
+        applyBackgroundLayerBottomInset(R.id.terminal_grain_overlay, insetBottom);
+    }
+
+    private void enforceAccessoryFxInvariants() {
+        View accessoryContainer = findViewById(R.id.accessory_stack_container);
+        if (accessoryContainer == null || accessoryContainer.getVisibility() != View.VISIBLE) {
+            resetAzOverflowAffordanceState();
+            return;
+        }
+        if (mSuggestionBarView == null) {
+            resetAzOverflowAffordanceState();
+            return;
+        }
+        boolean hasOverflow = mSuggestionBarView.hasAzOverflowPages() || mSuggestionBarView.hasPinnedOverflowPages();
+        if (!hasOverflow && !mAzGestureActive && !mSuggestionBarInteractionActive) {
+            resetAzOverflowAffordanceState();
+            return;
+        }
+        updateAzOverflowAffordance();
+    }
+
+    private void logAccessoryRenderSnapshot(@NonNull String reason) {
+        if (!ACCESSORY_RENDER_TRACE) {
+            return;
+        }
+        View accessoryContainer = findViewById(R.id.accessory_stack_container);
+        View azFxOverlay = findViewById(R.id.apps_bar_az_fx_overlay);
+        View azFxUnderlay = findViewById(R.id.apps_bar_az_fx_underlay);
+        View appsBar = findViewById(R.id.apps_bar_viewpager);
+        long now = SystemClock.uptimeMillis();
+        long delta = mLastAccessoryRenderSyncUptimeMs == 0L ? 0L : now - mLastAccessoryRenderSyncUptimeMs;
+        mLastAccessoryRenderSyncUptimeMs = now;
+        Logger.logVerbose(
+            LOG_TAG,
+            "AccessorySync reason=" + reason +
+                " dt=" + delta +
+                " ime=" + mLastImeVisible +
+                " accessoryVis=" + (accessoryContainer != null ? accessoryContainer.getVisibility() : -1) +
+                " appsBarVis=" + (appsBar != null ? appsBar.getVisibility() : -1) +
+                " fxU=" + (azFxUnderlay != null ? azFxUnderlay.getVisibility() : -1) +
+                " fxO=" + (azFxOverlay != null ? azFxOverlay.getVisibility() : -1)
+        );
     }
 
     private void scheduleSuggestionBarPackageRefresh(boolean immediate, boolean forceCatalogRefresh) {
