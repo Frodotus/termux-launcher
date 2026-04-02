@@ -598,6 +598,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private void applyAccessoryRenderState(@NonNull AccessoryRenderState state) {
         View accessoryContainer = findViewById(R.id.accessory_stack_container);
+        View terminalToolbarViewPager = findViewById(R.id.terminal_toolbar_view_pager);
         View appsBarViewPager = findViewById(R.id.apps_bar_viewpager);
         View extraKeysBackground = findViewById(R.id.extrakeys_background);
         View extraKeysBackgroundBlur = findViewById(R.id.extrakeys_backgroundblur);
@@ -633,6 +634,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (appsBarViewPager != null) {
                 appsBarViewPager.setVisibility(View.GONE);
             }
+            if (terminalToolbarViewPager != null) {
+                terminalToolbarViewPager.setVisibility(View.GONE);
+            }
             if (azRow != null) {
                 azRow.setVisibility(View.GONE);
             }
@@ -651,6 +655,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         if (appsBarViewPager != null) {
             appsBarViewPager.setVisibility(View.VISIBLE);
+        }
+        if (terminalToolbarViewPager != null) {
+            terminalToolbarViewPager.setVisibility(View.VISIBLE);
         }
         if (azRow != null) {
             azRow.setVisibility(state.azRowEnabled ? View.VISIBLE : View.GONE);
@@ -674,7 +681,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (extraKeysBackgroundBlur != null) {
             extraKeysBackgroundBlur.setVisibility(state.blurEnabled ? View.VISIBLE : View.GONE);
         }
-        applyTerminalBlurBackground();
         updateAzOverflowAffordance();
     }
 
@@ -1787,12 +1793,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTermuxTerminalExtraKeys = new TermuxTerminalExtraKeys(this, mTerminalView, mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient, 0);
         mTermuxTerminalExtraKeys2 = new TermuxTerminalExtraKeys(this, mTerminalView, mTermuxTerminalViewClient, mTermuxTerminalSessionActivityClient, 1);
         final ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
-        if (mPreferences.shouldShowTerminalToolbar())
-            terminalToolbarViewPager.setVisibility(View.VISIBLE);
         ViewGroup.LayoutParams layoutParams = terminalToolbarViewPager.getLayoutParams();
         mTerminalToolbarDefaultHeight = layoutParams.height;
         updateAppLauncherBarHeight();
         setTerminalToolbarHeight();
+        configureExtraKeysBackground();
         String savedTextInput = null;
         if (savedInstanceState != null)
             savedTextInput = savedInstanceState.getString(ARG_TERMINAL_TOOLBAR_TEXT_INPUT);
@@ -1914,13 +1919,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     public void toggleTerminalToolbar() {
-        ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
-        if (terminalToolbarViewPager == null) return;
-    
         boolean showNow = mPreferences.toogleShowTerminalToolbar();
         Logger.showToast(this, showNow ? getString(R.string.msg_enabling_terminal_toolbar) : getString(R.string.msg_disabling_terminal_toolbar), true);
-    
-        updateViewVisibility(terminalToolbarViewPager, showNow);
 
         configureExtraKeysBackground();
 
@@ -1931,20 +1931,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
     
-    private void updateViewVisibility(int viewId, boolean isVisible) {
-        View view = findViewById(viewId);
-        if (view != null) {
-            view.setVisibility(isVisible ? View.VISIBLE : View.GONE);
-        }
-    }
-    
-    private void updateViewVisibility(View view, boolean isVisible) {
-        if (view != null) {
-            view.setVisibility(isVisible ? View.VISIBLE : View.GONE);
-        }
-    }
-    
-
     private void saveTerminalToolbarTextInput(Bundle savedInstanceState) {
         if (savedInstanceState == null)
             return;
