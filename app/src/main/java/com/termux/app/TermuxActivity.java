@@ -487,7 +487,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, mPreferences.isSessionsBlurEnabled(), 0.5f, mPreferences.getSessionsBlurRadius());
         configureExtraKeysBackground();
         applyTerminalBlurBackground();
-        applyTerminalGrainOverlay();
         applySeamlessStatusBackgroundModeIfNeeded();
         scheduleAccessoryRenderSync("onStart");
     
@@ -523,7 +522,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, mPreferences.isSessionsBlurEnabled(), 0.5f, mPreferences.getSessionsBlurRadius());
         configureExtraKeysBackground();
         applyTerminalBlurBackground();
-        applyTerminalGrainOverlay();
         applySeamlessStatusBackgroundModeIfNeeded();
         scheduleAccessoryRenderSync("onResume");
         if (mSuggestionBarView != null) {
@@ -734,23 +732,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         blurView.setVisibility(blurRadiusDp > 0 ? View.VISIBLE : View.GONE);
     }
 
-    private void applyTerminalGrainOverlay() {
-        View grainOverlay = findViewById(R.id.terminal_grain_overlay);
-        if (!(grainOverlay instanceof TerminalGrainOverlayView) || mPreferences == null) {
-            return;
-        }
-        int grainIntensity = mPreferences.getTerminalGrainIntensity();
-        ((TerminalGrainOverlayView) grainOverlay).setIntensity(grainIntensity);
-        grainOverlay.setVisibility(grainIntensity > 0 ? View.VISIBLE : View.GONE);
-    }
-
     private boolean shouldEnableSeamlessStatusBackground() {
         if (mPreferences == null || mProperties == null || mProperties.isUsingFullScreen()) {
             return false;
         }
         return mPreferences.isMonetBackgroundEnabled()
-            || mPreferences.getTerminalBlurRadius() > 0
-            || mPreferences.getTerminalGrainIntensity() > 0;
+            || mPreferences.getTerminalBlurRadius() > 0;
     }
 
     private void applySeamlessStatusBackgroundModeIfNeeded() {
@@ -836,7 +823,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         int safeInsetTop = Math.max(0, insetTop);
         applyBackgroundLayerTopInset(R.id.terminal_monetbackground, safeInsetTop);
         applyBackgroundLayerTopInset(R.id.terminal_backgroundblur, safeInsetTop);
-        applyBackgroundLayerTopInset(R.id.terminal_grain_overlay, safeInsetTop);
     }
 
     @Override
@@ -2467,6 +2453,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         intentFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
         intentFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         intentFilter.addAction(Intent.ACTION_PACKAGE_CHANGED);
+        intentFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
         intentFilter.addDataScheme("package");
         if (Build.VERSION.SDK_INT >= 28) {
             registerReceiver(mPackageChangeReceiver, intentFilter, Context.RECEIVER_NOT_EXPORTED);
@@ -2709,7 +2696,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             String action = intent.getAction();
             if (Intent.ACTION_PACKAGE_ADDED.equals(action) ||
                 Intent.ACTION_PACKAGE_REMOVED.equals(action) ||
-                Intent.ACTION_PACKAGE_CHANGED.equals(action)) {
+                Intent.ACTION_PACKAGE_CHANGED.equals(action) ||
+                Intent.ACTION_PACKAGE_REPLACED.equals(action)) {
                 scheduleSuggestionBarPackageRefresh(false, true);
             }
         }
@@ -2769,7 +2757,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             }
         }
         applyTerminalBlurBackground();
-        applyTerminalGrainOverlay();
         applySeamlessStatusBackgroundModeIfNeeded();
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
         if (mTermuxTerminalSessionActivityClient != null)

@@ -174,11 +174,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
             case "terminal_blur_downsample_factor":
                 mPreferences.setTerminalBlurDownsampleFactor(value);
                 break;
-            case "terminal_grain_intensity":
-                boolean beforeGrainChangeAllOff = areVisualEffectsFullyOff();
-                mPreferences.setTerminalGrainIntensity(value);
-                triggerReloadOnAllEffectsOffTransition(beforeGrainChangeAllOff);
-                break;
             case "sessions_blur_radius":
                 mPreferences.setSessionsBlurRadius(value);
                 break;
@@ -215,8 +210,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 return mPreferences.getTerminalBlurRadius();
             case "terminal_blur_downsample_factor":
                 return mPreferences.getTerminalBlurDownsampleFactor();
-            case "terminal_grain_intensity":
-                return mPreferences.getTerminalGrainIntensity();
             case "sessions_blur_radius":
                 return mPreferences.getSessionsBlurRadius();
             case "extrakeys_blur_radius":
@@ -325,8 +318,7 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
     private boolean areVisualEffectsFullyOff() {
         return !mPreferences.isMonetBackgroundEnabled()
             && !mPreferences.isMonetOverlayEnabled()
-            && mPreferences.getTerminalBlurRadius() <= 0
-            && mPreferences.getTerminalGrainIntensity() <= 0;
+            && mPreferences.getTerminalBlurRadius() <= 0;
     }
 
     private void triggerReloadOnAllEffectsOffTransition(boolean beforeAllOff) {

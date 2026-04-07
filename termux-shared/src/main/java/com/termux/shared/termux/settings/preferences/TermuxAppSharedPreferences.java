@@ -467,15 +467,6 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_BLUR_DOWNSAMPLE_FACTOR, DataUtils.clamp(value, 1, 8), false);
     }
 
-    public int getTerminalGrainIntensity() {
-        int intensity = SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_GRAIN_INTENSITY, TERMUX_APP.DEFAULT_VALUE_TERMINAL_GRAIN_INTENSITY);
-        return DataUtils.clamp(intensity, 0, 100);
-    }
-
-    public void setTerminalGrainIntensity(int value) {
-        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_GRAIN_INTENSITY, DataUtils.clamp(value, 0, 100), false);
-    }
-
     public int getSessionsBlurRadius() {
         int radius = SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_SESSIONS_BLUR_RADIUS, TERMUX_APP.DEFAULT_VALUE_SESSIONS_BLUR_RADIUS);
         return Math.max(radius, 0);

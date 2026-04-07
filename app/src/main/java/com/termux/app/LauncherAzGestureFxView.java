@@ -7,9 +7,6 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.os.Build;
-import android.graphics.RenderEffect;
-import android.graphics.Shader;
 import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.view.View;
@@ -125,8 +122,6 @@ public final class LauncherAzGestureFxView extends View {
         edgeInnerPaint.setStyle(Paint.Style.FILL);
         pageIndicatorPaint.setStyle(Paint.Style.FILL);
         pageIndicatorInnerPaint.setStyle(Paint.Style.FILL);
-
-        applyBlurIfSupported(false);
     }
 
     public void setColors(int glassTintColor, int edgeTintColor) {
@@ -161,7 +156,6 @@ public final class LauncherAzGestureFxView extends View {
         } else {
             hasFocus = false;
         }
-        applyBlurIfSupported(false);
         invalidate();
     }
 
@@ -189,7 +183,6 @@ public final class LauncherAzGestureFxView extends View {
         canPageRight = pageRight;
         this.currentPageIndex = Math.max(0, currentPageIndex);
         this.pageCount = Math.max(1, pageCount);
-        applyBlurIfSupported(dragActive && interactionMode == InteractionMode.ICON_TRACK_LOCKED);
         refreshVisibility();
         invalidate();
     }
@@ -251,7 +244,6 @@ public final class LauncherAzGestureFxView extends View {
         }
         launchBloomActive = false;
         launchBloomProgress = 0f;
-        applyBlurIfSupported(false);
         refreshVisibility();
         invalidate();
     }
@@ -585,17 +577,6 @@ public final class LauncherAzGestureFxView extends View {
         glassStrokePaint.setStrokeWidth(dp(1.6f));
         glassStrokePaint.setColor(withAlpha(Color.WHITE, 178));
         canvas.drawRoundRect(rect, radius, radius, glassStrokePaint);
-    }
-
-    private void applyBlurIfSupported(boolean enable) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            return;
-        }
-        if (enable) {
-            setRenderEffect(RenderEffect.createBlurEffect(dp(7f), dp(7f), Shader.TileMode.CLAMP));
-        } else {
-            setRenderEffect(null);
-        }
     }
 
     private float dp(float value) {
