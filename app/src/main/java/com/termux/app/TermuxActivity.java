@@ -638,7 +638,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (extraKeysBackgroundBlur != null) {
             applyRealtimeBlurRadius(extraKeysBackgroundBlur, state.blurRadiusDp);
             applyRealtimeBlurDownsampleFactor(extraKeysBackgroundBlur, sharedWallpaperBlur ? mPreferences.getTerminalBlurDownsampleFactor() : 1);
-            applyRealtimeBlurOverlayColor(extraKeysBackgroundBlur, resolveGlassOverlayColor(Math.round(state.barAlpha * 100f)));
+            applyRealtimeBlurOverlayColor(extraKeysBackgroundBlur, Color.TRANSPARENT);
         }
         // Keep one live blur in the accessory stack. The bottom probe stays static to avoid
         // overlapping RealtimeBlurView composition during IME transitions.
@@ -705,8 +705,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             extraKeysBackground.setAlpha(state.barAlpha);
         }
         if (bottomSpaceBackground != null) {
-            bottomSpaceBackground.setVisibility(View.VISIBLE);
-            bottomSpaceBackground.setAlpha(state.barAlpha);
+            bottomSpaceBackground.setVisibility(View.GONE);
         }
 
         if (extraKeysBackgroundBlur != null) {
@@ -752,7 +751,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         int downsampleFactor = mPreferences.getTerminalBlurDownsampleFactor();
         applyRealtimeBlurRadius(blurView, blurRadiusDp);
         applyRealtimeBlurDownsampleFactor(blurView, downsampleFactor);
-        applyRealtimeBlurOverlayColor(blurView, resolveGlassOverlayColor(mPreferences.getTerminalBackgroundOpacity()));
+        applyRealtimeBlurOverlayColor(blurView, Color.TRANSPARENT);
         blurView.setVisibility(blurRadiusDp > 0 ? View.VISIBLE : View.GONE);
     }
 
@@ -766,7 +765,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTerminalView == null) {
             return;
         }
-        mTerminalView.setUseTransparentFrameClear(shouldUseWallpaperPassthroughMode());
+        boolean passthrough = shouldUseWallpaperPassthroughMode();
+        mTerminalView.setUseTransparentFrameClear(passthrough);
+        mTerminalView.setTransparentFrameOverlayColor(passthrough ? resolveGlassOverlayColor(mPreferences.getTerminalBackgroundOpacity()) : Color.TRANSPARENT);
     }
 
     private boolean shouldEnableSeamlessStatusBackground() {
