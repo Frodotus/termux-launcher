@@ -480,13 +480,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         addAccessoryKeyboardLayoutListener();
 
-        if (mPreferences.isMonetBackgroundEnabled()) {
-            configureViewVisibility(R.id.terminal_monetbackground, true);
-            applyTerminalMonetBackgroundOpacity();
-        } else {
-            configureViewVisibility(R.id.terminal_monetbackground, false);
-        }
-        configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, mPreferences.isSessionsBlurEnabled(), 0.5f, mPreferences.getSessionsBlurRadius());
+        applyTerminalSurfaceAppearance();
+        configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
         configureExtraKeysBackground();
         applyTerminalBlurBackground();
         applySeamlessStatusBackgroundModeIfNeeded();
@@ -515,13 +510,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalViewClient.onResume();
         maybeRecoverFromEmptySession("onResume");
 
-        if (mPreferences.isMonetBackgroundEnabled()) {
-            configureViewVisibility(R.id.terminal_monetbackground, true);
-            applyTerminalMonetBackgroundOpacity();
-        } else {
-            configureViewVisibility(R.id.terminal_monetbackground, false);
-        }
-        configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, mPreferences.isSessionsBlurEnabled(), 0.5f, mPreferences.getSessionsBlurRadius());
+        applyTerminalSurfaceAppearance();
+        configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
         configureExtraKeysBackground();
         applyTerminalBlurBackground();
         applySeamlessStatusBackgroundModeIfNeeded();
@@ -541,45 +531,56 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         view.setVisibility(isVisible ? View.VISIBLE : View.GONE);
     }
 
-    private void applyTerminalMonetBackgroundOpacity() {
-        int opacity = mPreferences.getTerminalBackgroundOpacity();
-        float alpha = opacity / 100f;
-        if (alpha < 0f) {
-            alpha = 0f;
-        } else if (alpha > 1f) {
-            alpha = 1f;
+    private void applyTerminalSurfaceAppearance() {
+        if (mPreferences == null) {
+            return;
         }
-        View terminalMonetBackground = findViewById(R.id.terminal_monetbackground);
-        if (terminalMonetBackground != null) {
-            terminalMonetBackground.setAlpha(alpha);
+        View terminalSurface = findViewById(R.id.terminal_monetbackground);
+        if (terminalSurface == null) {
+            return;
+        }
+        boolean showSurface = shouldUseWallpaperPassthroughMode() || mPreferences.isMonetBackgroundEnabled();
+        terminalSurface.setVisibility(showSurface ? View.VISIBLE : View.GONE);
+        if (!showSurface) {
+            return;
+        }
+
+        int surfaceColor = resolveGlassSurfaceColor();
+        terminalSurface.setBackgroundColor(surfaceColor);
+        applyGlassSurfaceColor(R.id.extrakeys_background, surfaceColor);
+        applyGlassSurfaceColor(R.id.activity_termux_bottom_space_background, surfaceColor);
+        applyGlassSurfaceColor(R.id.sessions_background, surfaceColor);
+
+        terminalSurface.setAlpha(resolveOpacityAlpha(mPreferences.getTerminalBackgroundOpacity()));
+    }
+
+    private int resolveGlassSurfaceColor() {
+        if (mPreferences != null && mPreferences.isMonetBackgroundEnabled()) {
+            return ContextCompat.getColor(this, R.color.background_accent);
+        }
+        int overlayColor = mProperties != null ? mProperties.getBackgroundOverlayColor() : Color.BLACK;
+        return 0xFF000000 | (overlayColor & 0x00FFFFFF);
+    }
+
+    private void applyGlassSurfaceColor(int viewId, int surfaceColor) {
+        View surface = findViewById(viewId);
+        if (surface != null) {
+            surface.setBackgroundColor(surfaceColor);
         }
     }
 
-    private void applyDecorViewBackgroundOpacity() {
-        int opacity = mPreferences != null ? mPreferences.getTerminalBackgroundOpacity() : 50;
-        if (opacity < 0) {
-            opacity = 0;
-        } else if (opacity > 100) {
-            opacity = 100;
-        }
-
-        int alpha = (int) ((opacity / 100f) * 255);
-        int backgroundColor = (alpha << 24) | 0x000000;
-
-        View decorView = getWindow().getDecorView();
-        if (decorView != null) {
-            decorView.setBackgroundColor(backgroundColor);
-            Logger.logVerbose(LOG_TAG, "Applied DecorView opacity: " + opacity + "% (alpha: 0x" + Integer.toHexString(alpha) + ")");
-        }
+    private float resolveOpacityAlpha(int opacityPercent) {
+        int clamped = Math.max(0, Math.min(100, opacityPercent));
+        return clamped / 100f;
     }
 
 
-    private void configureBackgroundBlur(int blurViewId, int backgroundViewId, boolean isBlurEnabled, float alphaIfBlurred, int blurRadiusDp) {
+    private void configureBackgroundBlur(int blurViewId, int backgroundViewId, boolean isBlurEnabled, float surfaceAlpha, int blurRadiusDp) {
         View blurView = findViewById(blurViewId);
         View backgroundView = findViewById(backgroundViewId);
         applyRealtimeBlurRadius(blurView, blurRadiusDp);
         blurView.setVisibility(isBlurEnabled ? View.VISIBLE : View.GONE);
-        backgroundView.setAlpha(isBlurEnabled ? alphaIfBlurred : 1.0f);
+        backgroundView.setAlpha(surfaceAlpha);
     }
 
     private static final class AccessoryRenderState {
@@ -605,7 +606,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         return new AccessoryRenderState(
             mPreferences.shouldShowTerminalToolbar(),
-            mPreferences.isExtraKeysBlurEnabled(),
+            mPreferences.getExtraKeysBlurRadius() > 0,
             mPreferences.isAppLauncherAzRowEnabled(),
             mPreferences.getAppBarOpacity() / 100f,
             mPreferences.getExtraKeysBlurRadius()
@@ -627,8 +628,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         View azRow = findViewById(R.id.apps_bar_az_row);
         View azFxUnderlay = findViewById(R.id.apps_bar_az_fx_underlay);
         View azFxOverlay = findViewById(R.id.apps_bar_az_fx_overlay);
+        boolean sharedWallpaperBlur = shouldUseWallpaperPassthroughMode();
 
-        applyRealtimeBlurRadius(extraKeysBackgroundBlur, state.blurRadiusDp);
+        if (extraKeysBackgroundBlur != null) {
+            applyRealtimeBlurRadius(extraKeysBackgroundBlur, state.blurRadiusDp);
+            applyRealtimeBlurDownsampleFactor(extraKeysBackgroundBlur, sharedWallpaperBlur ? mPreferences.getTerminalBlurDownsampleFactor() : 1);
+        }
         // Keep one live blur in the accessory stack. The bottom probe stays static to avoid
         // overlapping RealtimeBlurView composition during IME transitions.
         if (bottomSpaceBlur != null) {
@@ -691,15 +696,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         if (extraKeysBackground != null) {
             extraKeysBackground.setVisibility(View.VISIBLE);
-            extraKeysBackground.setAlpha(state.blurEnabled ? state.barAlpha : 1.0f);
+            extraKeysBackground.setAlpha(state.barAlpha);
         }
         if (bottomSpaceBackground != null) {
             bottomSpaceBackground.setVisibility(View.VISIBLE);
-            bottomSpaceBackground.setAlpha(state.blurEnabled ? state.barAlpha : 1.0f);
+            bottomSpaceBackground.setAlpha(state.barAlpha);
         }
 
         if (extraKeysBackgroundBlur != null) {
-            extraKeysBackgroundBlur.setVisibility(state.blurEnabled ? View.VISIBLE : View.GONE);
+            extraKeysBackgroundBlur.setVisibility(!sharedWallpaperBlur && state.blurEnabled ? View.VISIBLE : View.GONE);
         }
         updateAzOverflowAffordance();
     }
@@ -1158,8 +1163,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSuggestionBarView.setBandW(mPreferences.isAppLauncherBwIconsEnabled());
         mSuggestionBarView.setIconScale(mPreferences.getAppLauncherIconScale());
         mSuggestionBarView.setAppBarOpacity(mPreferences.getAppBarOpacity());
-        mSuggestionBarView.setBlurConfig(mPreferences.isExtraKeysBlurEnabled(), mPreferences.getExtraKeysBlurRadius());
-        mSuggestionBarView.setInheritedTintColor(ContextCompat.getColor(this, R.color.background_accent));
+        mSuggestionBarView.setBlurConfig(mPreferences.getExtraKeysBlurRadius() > 0, mPreferences.getExtraKeysBlurRadius());
+        mSuggestionBarView.setInheritedTintColor(resolveGlassSurfaceColor());
         mSuggestionBarView.setAppDataProvider(mLauncherAppDataProvider);
         mSuggestionBarView.setConfigRepository(mLauncherConfigRepository);
         mSuggestionBarView.setAppCatalogChangedListener(this::syncAzScrubLettersAndTint);
@@ -2627,7 +2632,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             insetBottom = Math.max(0, accessoryContainer.getHeight());
         }
         applyBackgroundLayerBottomInset(R.id.terminal_monetbackground, insetBottom);
-        applyBackgroundLayerBottomInset(R.id.terminal_backgroundblur, insetBottom);
+        applyBackgroundLayerBottomInset(R.id.terminal_backgroundblur, shouldUseWallpaperPassthroughMode() ? 0 : insetBottom);
     }
 
     private void enforceAccessoryFxInvariants() {
@@ -2768,11 +2773,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applySuggestionBarInputChar();
         setTerminalToolbarHeight();
         configureExtraKeysBackground();
-        if (mPreferences != null) {
-            if (mPreferences.isMonetBackgroundEnabled()) {
-                applyTerminalMonetBackgroundOpacity();
-            }
-        }
+        applyTerminalSurfaceAppearance();
         applyTerminalBlurBackground();
         applySeamlessStatusBackgroundModeIfNeeded();
         syncTerminalWallpaperRenderingMode();

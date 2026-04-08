@@ -102,10 +102,11 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
                 break;
             case "extrakeys_blur_enabled":
-                mPreferences.setExtraKeysBlurEnabled(value);
+                // Legacy compatibility: map old boolean writes to the new radius-driven model.
+                mPreferences.setExtraKeysBlurRadius(value ? Math.max(1, mPreferences.getExtraKeysBlurRadius()) : 0);
                 break;
             case "sessions_blur_enabled":
-                mPreferences.setSessionsBlurEnabled(value);
+                // Sessions blur is no longer user-facing in the hybrid model.
                 break;
             case "monet_background_enabled":
                 setMonetBackgroundAndOverlayEnabled(value);
@@ -138,9 +139,9 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
             case "use_system_wallpaper":
                 return mPreferences.isUseSystemWallpaperEnabled();
             case "extrakeys_blur_enabled":
-                return mPreferences.isExtraKeysBlurEnabled();
+                return mPreferences.getExtraKeysBlurRadius() > 0;
             case "sessions_blur_enabled":
-                return mPreferences.isSessionsBlurEnabled();
+                return false;
             case "monet_background_enabled":
                 return mPreferences.isMonetBackgroundEnabled();
             case "monet_overlay_enabled":
@@ -179,6 +180,9 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
             case "sessions_blur_radius":
                 mPreferences.setSessionsBlurRadius(value);
                 break;
+            case "sessions_opacity":
+                mPreferences.setSessionsOpacity(value);
+                break;
             case "extrakeys_blur_radius":
                 mPreferences.setExtraKeysBlurRadius(value);
                 break;
@@ -214,6 +218,8 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 return mPreferences.getTerminalBlurDownsampleFactor();
             case "sessions_blur_radius":
                 return mPreferences.getSessionsBlurRadius();
+            case "sessions_opacity":
+                return mPreferences.getSessionsOpacity();
             case "extrakeys_blur_radius":
                 return mPreferences.getExtraKeysBlurRadius();
             case "app_bar_opacity":

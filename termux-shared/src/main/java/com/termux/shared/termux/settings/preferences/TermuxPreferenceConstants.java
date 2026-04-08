@@ -340,6 +340,13 @@ public final class TermuxPreferenceConstants {
         public static final int DEFAULT_VALUE_SESSIONS_BLUR_RADIUS = 10;
 
         /**
+         * Defines the key for sessions menu opacity (percentage), where 100 is fully opaque.
+         */
+        public static final String KEY_SESSIONS_OPACITY = "sessions_opacity";
+
+        public static final int DEFAULT_VALUE_SESSIONS_OPACITY = 50;
+
+        /**
          * Defines the key for extrakeys/app bar blur radius (dp). 0 disables blur.
          */
         public static final String KEY_EXTRAKEYS_BLUR_RADIUS = "extrakeys_blur_radius";

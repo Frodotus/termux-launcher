@@ -289,35 +289,29 @@
                     To enable it, make sure that appropriate portrait and landscape files are present.
                     If you want to set a new background, set it from context menu by long click on Terminal. (Default)</string>
                 <string name="termux_background_image_enabled_on">Background image will be enabled.</string>
-                <string name="termux_use_system_wallpaper_title">Sync system wallpaper</string>
-                <string name="termux_use_system_wallpaper_on">When setting a background image, also set the Android system wallpaper to match (improves Monet colors).</string>
-                <string name="termux_use_system_wallpaper_off">Only update the in-app background; the system wallpaper stays unchanged.</string>
+                <string name="termux_use_system_wallpaper_title">Use wallpaper passthrough</string>
+                <string name="termux_use_system_wallpaper_on">Use the Android system wallpaper behind the terminal surfaces.</string>
+                <string name="termux_use_system_wallpaper_off">Use the app-owned background model instead of wallpaper passthrough.</string>
                 
                 <!-- Monet Background -->
-                <string name="termux_monet_background_enabled_title">Use Monet background + overlay (Unstable)</string>
-                <string name="termux_monet_background_enabled_off">Use the regular background and overlay color from termux.properties. (Default)</string>
-                <string name="termux_monet_background_enabled_on">Use wallpaper-based Monet color for both terminal background and opacity overlay.</string>
-                <string name="termux_terminal_background_opacity_title">Terminal background opacity</string>
-                <string name="termux_terminal_background_opacity_summary">Adjusts the translucency (alpha) of the terminal background overlay.</string>
+                <string name="termux_monet_background_enabled_title">Terminal overlay material coloring</string>
+                <string name="termux_monet_background_enabled_off">Use the regular terminal overlay color from termux.properties. (Default)</string>
+                <string name="termux_monet_background_enabled_on">Tint the terminal overlay using wallpaper-derived Material colors.</string>
+                <string name="termux_terminal_background_opacity_title">Terminal opacity</string>
+                <string name="termux_terminal_background_opacity_summary">Adjust the opacity of the terminal faux-glass overlay.</string>
                 <string name="termux_monet_overlay_enabled_title">Use Monet overlay color</string>
                 <string name="termux_monet_overlay_enabled_off">Use the overlay color defined in termux.properties.</string>
                 <string name="termux_monet_overlay_enabled_on">Use the current Monet surface color for the overlay.</string>
                 <string name="termux_terminal_blur_radius_title">Terminal blur amount</string>
-                <string name="termux_terminal_blur_radius_summary">Blur radius for terminal content (Android 12+). 0 disables blur.</string>
-                <string name="termux_terminal_blur_downsample_factor_title">Terminal blur quality</string>
-                <string name="termux_terminal_blur_downsample_factor_summary">Downsample factor for terminal blur (1 = sharpest/heaviest, 8 = softest/lightest).</string>
+                <string name="termux_terminal_blur_radius_summary">Adjust the radius of the terminal faux-glass blur. 0 disables blur.</string>
+                <string name="termux_terminal_blur_downsample_factor_title">Terminal blur intensity</string>
+                <string name="termux_terminal_blur_downsample_factor_summary">Controls how sharp/heavy or soft/light the terminal blur feels. Lower = heavier, higher = softer.</string>
             <!-- Extra Keys Category -->
-            <string name="termux_extrakeys_header">Extra Keys</string>
-                
-                <!-- Extra Keys Blur -->
-                <string name="termux_extrakeys_blur_enabled_title">Extra Keys Blurred Background</string>
-                <string name="termux_extrakeys_blur_enabled_off">Extra Keys Blurred Background will be disabled.
-                    Adds a transparent and blurred Background to Extra Keys. (May impact performance) (Default)</string>
-                <string name="termux_extrakeys_blur_enabled_on">ExtraKeys Blurred Background will be enabled.</string>
-                <string name="termux_extrakeys_blur_radius_title">Extra keys blur amount</string>
-                <string name="termux_extrakeys_blur_radius_summary">Blur radius for the extra keys and app search bar.</string>
-                <string name="termux_app_bar_opacity_title">Extra keys/app bar opacity</string>
-                <string name="termux_app_bar_opacity_summary">Background opacity for extra keys and app search bar when blur is enabled.</string>
+            <string name="termux_extrakeys_header">Extra Keys Bar</string>
+                <string name="termux_extrakeys_blur_radius_title">Extra keys bar blur intensity</string>
+                <string name="termux_extrakeys_blur_radius_summary">Adjust the faux-glass blur used behind the extra keys bar.</string>
+                <string name="termux_app_bar_opacity_title">Extra keys bar opacity</string>
+                <string name="termux_app_bar_opacity_summary">Adjust the opacity of the extra keys bar surface.</string>
 
             <!-- App Launcher Category -->
             <string name="termux_app_launcher_header">Launcher: Settings</string>
@@ -355,13 +349,8 @@
             <!-- Sessions Category -->
             <string name="termux_sessions_header">Sessions Menu</string>
             
-                <!-- Sessions Blur -->
-                <string name="termux_sessions_blur_enabled_title">Sessions Blurred Background</string>
-                <string name="termux_sessions_blur_enabled_off">Sessions Blurred Background will be disabled.
-                    Adds a transparent and blurred Background to Sessions Menu. (May impact performance) (Default)</string>
-                <string name="termux_sessions_blur_enabled_on">Sessions Blurred Background will be enabled.</string>
-                <string name="termux_sessions_blur_radius_title">Sessions blur amount</string>
-                <string name="termux_sessions_blur_radius_summary">Blur radius for the sessions menu background.</string>
+                <string name="termux_sessions_opacity_title">Sessions menu opacity</string>
+                <string name="termux_sessions_opacity_summary">Adjust the opacity of the sessions menu surface.</string>
 
 
 

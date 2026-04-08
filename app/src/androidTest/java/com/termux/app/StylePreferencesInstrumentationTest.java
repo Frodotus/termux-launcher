@@ -22,7 +22,8 @@ public class StylePreferencesInstrumentationTest {
             "background_image_enabled",
             "use_system_wallpaper",
             "terminal_background_opacity",
-            "extrakeys_blur_enabled"
+            "app_bar_opacity",
+            "sessions_opacity"
     };
 
     @Rule
