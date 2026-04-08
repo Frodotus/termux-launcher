@@ -472,6 +472,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalSessionActivityClient.onStart();
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onStart();
+        if (mTermuxBackgroundManager != null)
+            mTermuxBackgroundManager.updateBackground(true);
     
         if (mPreferences.isTerminalMarginAdjustmentEnabled()) {
             addTermuxActivityRootViewGlobalLayoutListener();
@@ -891,7 +893,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         Logger.logVerbose(LOG_TAG, "onConfigurationChanged");
         super.onConfigurationChanged(newConfig);
-        mTermuxTerminalSessionActivityClient.onConfigurationChanged(newConfig);
+        if (mTermuxBackgroundManager != null)
+            mTermuxBackgroundManager.updateBackground(true);
     }
 
     /**
@@ -2757,6 +2760,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         applyTerminalBlurBackground();
         applySeamlessStatusBackgroundModeIfNeeded();
+        if (mTermuxBackgroundManager != null)
+            mTermuxBackgroundManager.updateBackground(true);
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onReloadActivityStyling();
