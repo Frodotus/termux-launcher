@@ -169,6 +169,13 @@
             android:layout_alignParentBottom="true"
             android:visibility="gone">
 
+            <ImageView
+                android:id="@+id/accessory_blur_backdrop"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitXY"
+                android:visibility="gone" />
+
             <com.termux.app.LauncherAzGestureFxView
                 android:id="@+id/apps_bar_az_fx_underlay"
                 android:layout_width="match_parent"
