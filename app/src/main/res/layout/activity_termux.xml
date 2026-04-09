@@ -27,14 +27,14 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_alignParentTop="true"
-            android:layout_above="@+id/accessory_stack_container">
+            android:layout_above="@+id/accessory_stack_container"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
             <FrameLayout
                 android:id="@+id/terminal_surface_host"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginRight="3dp"
-                android:layout_marginLeft="3dp"
                 android:clipChildren="false"
                 android:clipToPadding="false">
 
