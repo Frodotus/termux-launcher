@@ -540,6 +540,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         View terminalStatusSurface = findViewById(R.id.terminal_monetbackground);
         View terminalSurfaceHost = findViewById(R.id.terminal_surface_host);
+        View terminalView = findViewById(R.id.terminal_view);
         if (terminalStatusSurface == null || terminalSurfaceHost == null) {
             return;
         }
@@ -552,6 +553,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         boolean showSurface = shouldShowTerminalGlassSurface() && !blurEnabled;
         int terminalSurfaceColor = showSurface ? resolveTerminalSurfaceColor() : Color.TRANSPARENT;
         terminalSurfaceHost.setBackgroundColor(terminalSurfaceColor);
+        if (terminalView != null) {
+            terminalView.setBackgroundColor(terminalSurfaceColor);
+        }
         terminalStatusSurface.setBackgroundColor(terminalSurfaceColor);
         terminalStatusSurface.setVisibility(showSurface && mSeamlessStatusBackgroundActive ? View.VISIBLE : View.GONE);
     }
