@@ -539,7 +539,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
         View terminalSurface = findViewById(R.id.terminal_monetbackground);
-        View terminalViewSurface = findViewById(R.id.terminal_view);
         if (terminalSurface == null) {
             return;
         }
@@ -551,9 +550,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         boolean blurEnabled = !shouldUseWallpaperPassthroughMode() && mPreferences.getTerminalBlurRadius() > 0;
         boolean showSurface = shouldShowTerminalGlassSurface() && !blurEnabled;
         terminalSurface.setVisibility(showSurface ? View.VISIBLE : View.GONE);
-        if (terminalViewSurface != null) {
-            terminalViewSurface.setBackgroundColor(showSurface ? resolveTerminalSurfaceColor() : Color.TRANSPARENT);
-        }
         if (!showSurface) {
             return;
         }
@@ -2667,13 +2663,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void syncTerminalOverlayBottomInsetToAccessoryHeight() {
-        View accessoryContainer = findViewById(R.id.accessory_stack_container);
-        int insetBottom = 0;
-        if (accessoryContainer != null && accessoryContainer.getVisibility() == View.VISIBLE) {
-            insetBottom = Math.max(0, accessoryContainer.getHeight());
-        }
-        applyBackgroundLayerBottomInset(R.id.terminal_monetbackground, insetBottom);
-        applyBackgroundLayerBottomInset(R.id.terminal_backgroundblur, shouldUseWallpaperPassthroughMode() ? 0 : insetBottom);
+        // Terminal glass layers now live inside terminal_surface_host, which already ends above the
+        // accessory stack. Re-applying the accessory height here causes the wallpaper and scrim to
+        // drift against the extra-keys surface and exposes false seams at the bottom edge.
+        applyBackgroundLayerBottomInset(R.id.terminal_monetbackground, 0);
+        applyBackgroundLayerBottomInset(R.id.terminal_backgroundblur, 0);
     }
 
     private void enforceAccessoryFxInvariants() {
