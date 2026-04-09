@@ -45,6 +45,13 @@
                 android:clipChildren="false"
                 android:clipToPadding="false">
 
+                <View
+                    android:id="@+id/terminal_background"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone"
+                    android:background="@color/background_accent" />
+
                 <com.github.mmin18.widget.RealtimeBlurView
                     android:id="@+id/terminal_backgroundblur"
                     android:layout_width="match_parent"

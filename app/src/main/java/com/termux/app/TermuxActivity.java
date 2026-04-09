@@ -527,8 +527,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         View terminalStatusSurface = findViewById(R.id.terminal_monetbackground);
         View terminalSurfaceHost = findViewById(R.id.terminal_surface_host);
+        View terminalBodySurface = findViewById(R.id.terminal_background);
         View terminalView = findViewById(R.id.terminal_view);
-        if (terminalStatusSurface == null || terminalSurfaceHost == null) {
+        if (terminalStatusSurface == null || terminalSurfaceHost == null || terminalBodySurface == null) {
             return;
         }
         int sharedSurfaceColor = resolveGlassSurfaceBaseColor();
@@ -537,27 +538,39 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyGlassSurfaceColor(R.id.sessions_background, sharedSurfaceColor);
 
         if (shouldUseWallpaperPassthroughMode()) {
+            boolean showSurface = shouldShowTerminalGlassSurface();
+            int terminalSurfaceColor = showSurface ? resolveTerminalSurfaceColor() : Color.TRANSPARENT;
             terminalSurfaceHost.setBackgroundColor(Color.TRANSPARENT);
+            terminalBodySurface.setBackgroundColor(terminalSurfaceColor);
+            terminalBodySurface.setVisibility(showSurface && Color.alpha(terminalSurfaceColor) > 0 ? View.VISIBLE : View.GONE);
             if (terminalView != null) {
                 terminalView.setBackgroundColor(Color.TRANSPARENT);
             }
-            terminalStatusSurface.setVisibility(View.GONE);
+            terminalStatusSurface.setBackgroundColor(terminalSurfaceColor);
+            terminalStatusSurface.setVisibility(
+                showSurface && mSeamlessStatusBackgroundActive && Color.alpha(terminalSurfaceColor) > 0
+                    ? View.VISIBLE
+                    : View.GONE
+            );
             return;
         }
 
         boolean blurEnabled = !shouldUseWallpaperPassthroughMode() && mPreferences.getTerminalBlurRadius() > 0;
         boolean showSurface = shouldShowTerminalGlassSurface() && !blurEnabled;
         int terminalSurfaceColor = showSurface ? resolveTerminalSurfaceColor() : Color.TRANSPARENT;
-        terminalSurfaceHost.setBackgroundColor(terminalSurfaceColor);
+        terminalSurfaceHost.setBackgroundColor(Color.TRANSPARENT);
+        terminalBodySurface.setBackgroundColor(terminalSurfaceColor);
+        terminalBodySurface.setVisibility(showSurface && Color.alpha(terminalSurfaceColor) > 0 ? View.VISIBLE : View.GONE);
         if (terminalView != null) {
-            terminalView.setBackgroundColor(terminalSurfaceColor);
+            terminalView.setBackgroundColor(Color.TRANSPARENT);
         }
         terminalStatusSurface.setBackgroundColor(terminalSurfaceColor);
         terminalStatusSurface.setVisibility(showSurface && mSeamlessStatusBackgroundActive ? View.VISIBLE : View.GONE);
     }
 
     private int resolveGlassSurfaceBaseColor() {
-        if (mPreferences != null && mPreferences.isMonetBackgroundEnabled()) {
+        if (mPreferences != null
+            && (mPreferences.isMonetBackgroundEnabled() || mPreferences.isMonetOverlayEnabled())) {
             return ContextCompat.getColor(this, R.color.background_accent);
         }
         int overlayColor = mProperties != null ? mProperties.getBackgroundOverlayColor() : Color.BLACK;
@@ -581,6 +594,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         int alpha = Math.round(resolveOpacityAlpha(
             mPreferences != null ? mPreferences.getTerminalBackgroundOpacity() : 100
         ) * 255f);
+        return (alpha << 24) | (baseColor & 0x00FFFFFF);
+    }
+
+    private int resolveAccessorySurfaceColor(float surfaceAlpha) {
+        int baseColor = resolveGlassSurfaceBaseColor();
+        int alpha = Math.round(Math.max(0f, Math.min(1f, surfaceAlpha)) * 255f);
         return (alpha << 24) | (baseColor & 0x00FFFFFF);
     }
 
@@ -654,7 +673,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (extraKeysBackgroundBlur != null) {
             applyRealtimeBlurRadius(extraKeysBackgroundBlur, state.blurRadiusDp);
             applyRealtimeBlurDownsampleFactor(extraKeysBackgroundBlur, ACCESSORY_BLUR_DOWNSAMPLE_FACTOR);
-            applyRealtimeBlurOverlayColor(extraKeysBackgroundBlur, Color.TRANSPARENT);
+            applyRealtimeBlurOverlayColor(
+                extraKeysBackgroundBlur,
+                state.blurEnabled ? resolveAccessorySurfaceColor(state.barAlpha) : Color.TRANSPARENT
+            );
         }
         // Keep one live blur in the accessory stack. The bottom probe stays static to avoid
         // overlapping RealtimeBlurView composition during IME transitions.
@@ -717,7 +739,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         if (extraKeysBackground != null) {
-            extraKeysBackground.setVisibility(View.VISIBLE);
+            extraKeysBackground.setVisibility(state.blurEnabled ? View.GONE : View.VISIBLE);
             extraKeysBackground.setAlpha(state.barAlpha);
         }
         if (bottomSpaceBackground != null) {
@@ -2394,7 +2416,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
         if (shouldUseWallpaperPassthroughMode()) {
-            getWindow().getDecorView().setBackgroundColor(resolveTerminalSurfaceColor());
+            getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
             return;
         }
         TerminalSession session = getCurrentSession();
