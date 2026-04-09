@@ -93,10 +93,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
         if (key == null)
             return;
         switch(key) {
-            case "background_image_enabled":
-                mPreferences.setBackgroundImageEnabled(value);
-                TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
-                break;
             case "use_system_wallpaper":
                 mPreferences.setUseSystemWallpaperEnabled(value);
                 TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
@@ -134,8 +130,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
         if (mPreferences == null)
             return defValue;
         switch(key) {
-            case "background_image_enabled":
-                return mPreferences.isBackgroundImageEnabled();
             case "use_system_wallpaper":
                 return mPreferences.isUseSystemWallpaperEnabled();
             case "extrakeys_blur_enabled":

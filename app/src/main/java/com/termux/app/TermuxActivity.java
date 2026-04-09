@@ -535,6 +535,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyGlassSurfaceColor(R.id.activity_termux_bottom_space_background, sharedSurfaceColor);
         applyGlassSurfaceColor(R.id.sessions_background, sharedSurfaceColor);
 
+        if (shouldUseWallpaperPassthroughMode()) {
+            terminalSurfaceHost.setBackgroundColor(Color.TRANSPARENT);
+            if (terminalView != null) {
+                terminalView.setBackgroundColor(Color.TRANSPARENT);
+            }
+            terminalStatusSurface.setVisibility(View.GONE);
+            return;
+        }
+
         boolean blurEnabled = !shouldUseWallpaperPassthroughMode() && mPreferences.getTerminalBlurRadius() > 0;
         boolean showSurface = shouldShowTerminalGlassSurface() && !blurEnabled;
         int terminalSurfaceColor = showSurface ? resolveTerminalSurfaceColor() : Color.TRANSPARENT;
@@ -577,9 +586,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private boolean shouldShowTerminalGlassSurface() {
         if (mProperties == null || mProperties.isUsingFullScreen()) {
             return false;
-        }
-        if (shouldUseWallpaperPassthroughMode()) {
-            return true;
         }
         if (mPreferences == null) {
             return false;
@@ -774,7 +780,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTerminalView == null) {
             return;
         }
-        mTerminalView.setUseTransparentFrameClear(shouldShowTerminalGlassSurface());
+        mTerminalView.setUseTransparentFrameClear(shouldUseWallpaperPassthroughMode() || shouldShowTerminalGlassSurface());
     }
 
     private boolean shouldEnableSeamlessStatusBackground() {
@@ -2038,7 +2044,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void launchSystemWallpaperPicker() {
-        mPreferences.setBackgroundImageEnabled(false);
         mPreferences.setUseSystemWallpaperEnabled(true);
         requestTermuxActivityStylingOnNextResume(this, true);
         try {
@@ -2050,7 +2055,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void makeTerminalBackgroundOpaque() {
-        mPreferences.setBackgroundImageEnabled(false);
         mPreferences.setUseSystemWallpaperEnabled(false);
         mPreferences.setTerminalBackgroundOpacity(100);
         mPreferences.setAppBarOpacity(100);
@@ -2389,7 +2393,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
         if (shouldUseWallpaperPassthroughMode()) {
-            getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
+            getWindow().getDecorView().setBackgroundColor(resolveTerminalSurfaceColor());
             return;
         }
         TerminalSession session = getCurrentSession();
