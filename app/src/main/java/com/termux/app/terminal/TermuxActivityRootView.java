@@ -78,6 +78,7 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
 
     private static int mStatusBarHeight;
     private static final long MIN_MARGIN_UPDATE_INTERVAL_MS = 18L;
+    private static final int BOTTOM_MARGIN_NOISE_PX = 1;
 
     private long mLastMarginCommitTimeMs;
 
@@ -234,6 +235,9 @@ public class TermuxActivityRootView extends LinearLayout implements ViewTreeObse
         // ELse find the part of the extra keys/terminal that is hidden and add a margin accordingly
         else {
             int pxHidden = bottomSpaceViewRect.bottom - windowAvailableRect.bottom;
+            if (Math.abs(pxHidden) <= BOTTOM_MARGIN_NOISE_PX) {
+                pxHidden = 0;
+            }
 
             if (root_view_logging_enabled)
                 Logger.logVerbose(LOG_TAG, "pxHidden " + pxHidden + ", bottom " + params.bottomMargin);

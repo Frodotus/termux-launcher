@@ -14,20 +14,6 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <View
-            android:id="@+id/terminal_monetbackground"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@color/background_accent"/>
-
-        <com.github.mmin18.widget.RealtimeBlurView
-            android:id="@+id/terminal_backgroundblur"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone"
-            app:realtimeBlurRadius="10dp"
-            app:realtimeOverlayColor="@android:color/transparent" />
-
         <RelativeLayout
             android:id="@+id/activity_termux_root_relative_layout"
             android:layout_width="match_parent"
@@ -43,21 +29,43 @@
             android:layout_alignParentTop="true"
             android:layout_above="@+id/accessory_stack_container">
 
-            <com.termux.view.TerminalView
-                android:id="@+id/terminal_view"
+            <FrameLayout
+                android:id="@+id/terminal_surface_host"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:defaultFocusHighlightEnabled="false"
-                android:focusableInTouchMode="true"
                 android:layout_marginRight="3dp"
                 android:layout_marginLeft="3dp"
-                android:overScrollMode="never"
-                android:smoothScrollbar="false"
-                android:scrollingCache="true"
-                android:fastScrollEnabled="false"
-                android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"
-                android:scrollbars="vertical"
-                tools:ignore="UnusedAttribute" />
+                android:clipChildren="false"
+                android:clipToPadding="false">
+
+                <View
+                    android:id="@+id/terminal_monetbackground"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@color/background_accent"/>
+
+                <com.github.mmin18.widget.RealtimeBlurView
+                    android:id="@+id/terminal_backgroundblur"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone"
+                    app:realtimeBlurRadius="10dp"
+                    app:realtimeOverlayColor="@android:color/transparent" />
+
+                <com.termux.view.TerminalView
+                    android:id="@+id/terminal_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:defaultFocusHighlightEnabled="false"
+                    android:focusableInTouchMode="true"
+                    android:overScrollMode="never"
+                    android:smoothScrollbar="false"
+                    android:scrollingCache="true"
+                    android:fastScrollEnabled="false"
+                    android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"
+                    android:scrollbars="vertical"
+                    tools:ignore="UnusedAttribute" />
+            </FrameLayout>
 
             <RelativeLayout
                 android:layout_width="240dp"
@@ -217,7 +225,7 @@
     <FrameLayout
         android:id="@+id/activity_termux_bottom_space_view"
         android:layout_width="match_parent"
-        android:layout_height="1dp">
+        android:layout_height="0dp">
 
         <com.github.mmin18.widget.RealtimeBlurView
             android:id="@+id/activity_termux_bottom_space_blur"
