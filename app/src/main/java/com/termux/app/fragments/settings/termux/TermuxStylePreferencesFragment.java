@@ -1,13 +1,11 @@
 package com.termux.app.fragments.settings.termux;
 
 import android.content.Context;
-import android.os.Build;
 import android.os.Bundle;
 import androidx.annotation.ColorInt;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
-import androidx.preference.Preference;
 import androidx.preference.PreferenceDataStore;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceManager;
@@ -41,23 +39,6 @@ public class TermuxStylePreferencesFragment extends PreferenceFragmentCompat {
         PreferenceManager preferenceManager = getPreferenceManager();
         preferenceManager.setPreferenceDataStore(TermuxStylePreferencesDataStore.getInstance(context));
         setPreferencesFromResource(R.xml.termux_style_preferences, rootKey);
-        configureBackgroundPreferences(context);
-    }
-
-    /**
-     * Configure background preferences and make appropriate changes in the state of components.
-     *
-     * @param context The context for operations.
-     */
-    private void configureBackgroundPreferences(@NonNull Context context) {
-        TermuxAppSharedPreferences preferences = TermuxAppSharedPreferences.build(context, true);
-        if (preferences == null)
-            return;
-        boolean wallpaperPassthrough = preferences.isUseSystemWallpaperEnabled();
-        Preference terminalBlurRadius = findPreference("terminal_blur_radius");
-        if (terminalBlurRadius != null) terminalBlurRadius.setEnabled(!wallpaperPassthrough);
-        Preference terminalBlurIntensity = findPreference("terminal_blur_downsample_factor");
-        if (terminalBlurIntensity != null) terminalBlurIntensity.setEnabled(!wallpaperPassthrough);
     }
 }
 
@@ -159,14 +140,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 syncBackgroundOverlayColor(value, null);
                 TermuxActivity.updateTermuxActivityStyling(mContext, true);
                 break;
-            case "terminal_blur_radius":
-                boolean beforeBlurChangeAllOff = areVisualEffectsFullyOff();
-                mPreferences.setTerminalBlurRadius(value);
-                triggerReloadOnAllEffectsOffTransition(beforeBlurChangeAllOff);
-                break;
-            case "terminal_blur_downsample_factor":
-                mPreferences.setTerminalBlurDownsampleFactor(value);
-                break;
             case "sessions_opacity":
                 mPreferences.setSessionsOpacity(value);
                 break;
@@ -199,10 +172,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
         switch (key) {
             case "terminal_background_opacity":
                 return mPreferences.getTerminalBackgroundOpacity();
-            case "terminal_blur_radius":
-                return mPreferences.getTerminalBlurRadius();
-            case "terminal_blur_downsample_factor":
-                return mPreferences.getTerminalBlurDownsampleFactor();
             case "sessions_opacity":
                 return mPreferences.getSessionsOpacity();
             case "extrakeys_blur_radius":
@@ -306,19 +275,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
         }
         syncBackgroundOverlayColor(mPreferences.getTerminalBackgroundOpacity(), manualOverride);
         TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
-    }
-
-    private boolean areVisualEffectsFullyOff() {
-        return !mPreferences.isMonetBackgroundEnabled()
-            && !mPreferences.isMonetOverlayEnabled()
-            && mPreferences.getTerminalBlurRadius() <= 0;
-    }
-
-    private void triggerReloadOnAllEffectsOffTransition(boolean beforeAllOff) {
-        if (!beforeAllOff && areVisualEffectsFullyOff()) {
-            // Mirrors termux-reload-settings behavior for the enhanced -> legacy transition.
-            TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
-        }
     }
 
     private String getCurrentOverlayColorString() {

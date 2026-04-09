@@ -277,10 +277,6 @@
                 <string name="termux_monet_background_enabled_on">Tint the terminal overlay using wallpaper-derived Material colors.</string>
                 <string name="termux_terminal_background_opacity_title">Terminal opacity</string>
                 <string name="termux_terminal_background_opacity_summary">Adjust the opacity of the terminal faux-glass overlay.</string>
-                <string name="termux_terminal_blur_radius_title">Terminal blur amount</string>
-                <string name="termux_terminal_blur_radius_summary">Adjust the radius of the terminal faux-glass blur. 0 disables blur.</string>
-                <string name="termux_terminal_blur_downsample_factor_title">Terminal blur intensity</string>
-                <string name="termux_terminal_blur_downsample_factor_summary">Controls how sharp/heavy or soft/light the terminal blur feels. Lower = heavier, higher = softer.</string>
             <!-- Extra Keys Category -->
             <string name="termux_extrakeys_header">Extra Keys Bar</string>
                 <string name="termux_extrakeys_blur_radius_title">Extra keys bar blur intensity</string>
