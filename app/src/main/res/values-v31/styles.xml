@@ -5,11 +5,11 @@
     </style>
 
     <style name="TermuxActivity.Drawer.ButtonBarStyle.Light" parent="Widget.Material3.Button.TextButton">
-        <item name="android:textColor">@color/highlight_accent</item>
+        <item name="android:textColor">@color/termux_on_surface_variant</item>
     </style>
 
     <style name="TermuxActivity.Drawer.ButtonBarStyle.Dark" parent="Widget.Material3.Button.TextButton">
-        <item name="android:textColor">@color/main_accent</item>
+        <item name="android:textColor">@color/termux_on_surface</item>
     </style>
 
 </resources>

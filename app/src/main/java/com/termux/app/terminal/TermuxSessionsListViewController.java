@@ -1,7 +1,6 @@
 package com.termux.app.terminal;
 
 import android.annotation.SuppressLint;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.text.SpannableString;
@@ -16,11 +15,10 @@ import android.widget.ArrayAdapter;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import com.google.android.material.color.MaterialColors;
 import com.termux.R;
 import com.termux.app.TermuxActivity;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
-import com.termux.shared.theme.NightMode;
-import com.termux.shared.theme.ThemeUtils;
 import com.termux.terminal.TerminalSession;
 import java.util.List;
 
@@ -52,7 +50,6 @@ public class TermuxSessionsListViewController extends ArrayAdapter<TermuxSession
             sessionTitleView.setText("null session");
             return sessionRowView;
         }
-        boolean shouldEnableDarkTheme = ThemeUtils.shouldEnableDarkTheme(mActivity, NightMode.getAppNightMode().getName());
         String name = sessionAtRow.mSessionName;
         String sessionTitle = sessionAtRow.getTitle();
         String numberPart = "[" + (position + 1) + "] ";
@@ -69,8 +66,11 @@ public class TermuxSessionsListViewController extends ArrayAdapter<TermuxSession
         } else {
             sessionTitleView.setPaintFlags(sessionTitleView.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         }
-        int defaultColor = shouldEnableDarkTheme ? Color.WHITE : Color.BLACK;
-        int color = sessionRunning || sessionAtRow.getExitStatus() == 0 ? defaultColor : Color.RED;
+        int defaultColor = MaterialColors.getColor(mActivity, com.google.android.material.R.attr.colorOnSurface,
+            ContextCompat.getColor(mActivity, R.color.termux_on_surface));
+        int color = sessionRunning || sessionAtRow.getExitStatus() == 0
+            ? defaultColor
+            : ContextCompat.getColor(mActivity, R.color.termux_error);
         sessionTitleView.setTextColor(color);
         return sessionRowView;
     }

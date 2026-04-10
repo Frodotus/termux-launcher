@@ -63,11 +63,13 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.mmin18.widget.RealtimeBlurView;
+import com.google.android.material.color.MaterialColors;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.termux.R;
 import com.termux.app.launcher.data.LauncherAppDataProvider;
@@ -99,7 +101,6 @@ import java.util.concurrent.Executors;
 public final class SuggestionBarView extends GridLayout {
 
     private static final String LOG_TAG = "SuggestionBarView";
-    private static final int TEXT_COLOR = 0xFFC0B18B;
     private static final char[] AZ_ORDER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#".toCharArray();
     private static final int POPUP_MAX_WIDTH_DP = 320;
     private static final int POPUP_MIN_WIDTH_DP = 188;
@@ -119,7 +120,7 @@ public final class SuggestionBarView extends GridLayout {
     private int appBarOpacity = 80;
     private boolean blurEnabled = false;
     private int blurRadiusDp = 10;
-    private int inheritedTintColor = 0xFF202020;
+    private int inheritedTintColor = 0;
     private List<String> defaultButtonStrings = new ArrayList<>();
     private final Map<String, WeakReference<View>> launchTargetViews = new HashMap<>();
     private final Map<String, WeakReference<View>> launchTargetViewsByPackage = new HashMap<>();
@@ -156,7 +157,7 @@ public final class SuggestionBarView extends GridLayout {
     private final List<MenuActionRow> appContextRows = new ArrayList<>();
     private final List<MenuActionRow> shortcutsRows = new ArrayList<>();
     @Nullable private MenuActionRow activeMenuHighlight;
-    private int activeMenuTintBase = (0xFF202020 & 0x00FFFFFF);
+    private int activeMenuTintBase = 0;
     @Nullable private TextView shortcutsMainRowView;
     private final Runnable azResetRunnable = this::clearAzPreviewWithFade;
     private static final long AZ_LAUNCH_CLEAR_DELAY_MS = 1000L;
@@ -228,6 +229,8 @@ public final class SuggestionBarView extends GridLayout {
     public SuggestionBarView(Context context, AttributeSet attrs) {
         super(context, attrs);
         initFocusSurface();
+        inheritedTintColor = resolveLauncherPanelColor();
+        activeMenuTintBase = inheritedTintColor & 0x00FFFFFF;
     }
 
     private void initFocusSurface() {
@@ -289,6 +292,35 @@ public final class SuggestionBarView extends GridLayout {
 
     public void setInheritedTintColor(int inheritedTintColor) {
         this.inheritedTintColor = inheritedTintColor;
+        this.activeMenuTintBase = inheritedTintColor & 0x00FFFFFF;
+    }
+
+    private int resolveLauncherTextColor() {
+        return MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface,
+            ContextCompat.getColor(getContext(), R.color.termux_on_surface));
+    }
+
+    private int resolveLauncherSubtleTextColor() {
+        return MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant,
+            ContextCompat.getColor(getContext(), R.color.termux_on_surface_variant));
+    }
+
+    private int resolveLauncherSelectedTextColor() {
+        return MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSecondaryContainer,
+            ContextCompat.getColor(getContext(), R.color.termux_on_accent_container));
+    }
+
+    private int resolveLauncherPanelColor() {
+        return MaterialColors.getColor(this, com.google.android.material.R.attr.colorSurfaceContainerHigh,
+            ContextCompat.getColor(getContext(), R.color.termux_surface_panel_high));
+    }
+
+    private int resolveLauncherOutlineColor() {
+        return ContextCompat.getColor(getContext(), R.color.termux_outline_variant);
+    }
+
+    private static int withAlphaComponent(int color, int alpha) {
+        return (Math.max(0, Math.min(255, alpha)) << 24) | (color & 0x00FFFFFF);
     }
 
     public void setConfigRepository(@Nullable LauncherConfigRepository configRepository) {
@@ -1236,7 +1268,7 @@ public final class SuggestionBarView extends GridLayout {
 
     private void applyPinnedHintShimmer(@NonNull TextView hintView) {
         final int baseColor = resolvePinnedHintBaseColor();
-        final int shimmerColor = blendColors(baseColor, TEXT_COLOR, 0.24f);
+        final int shimmerColor = blendColors(baseColor, resolveLauncherTextColor(), 0.24f);
         ValueAnimator shimmer = ValueAnimator.ofObject(new ArgbEvaluator(), baseColor, shimmerColor, baseColor);
         shimmer.setDuration(3200L);
         shimmer.setRepeatCount(ValueAnimator.INFINITE);
@@ -1259,7 +1291,7 @@ public final class SuggestionBarView extends GridLayout {
     }
 
     private int resolvePinnedHintBaseColor() {
-        return blendColors(inheritedTintColor, 0xFFE1DED5, 0.58f);
+        return blendColors(inheritedTintColor, resolveLauncherTextColor(), 0.58f);
     }
 
     private static int blendColors(int from, int to, float ratio) {
@@ -1638,7 +1670,7 @@ public final class SuggestionBarView extends GridLayout {
 
         TextView selectedTitle = new TextView(getContext());
         selectedTitle.setText("Pinned Apps");
-        selectedTitle.setTextColor(TEXT_COLOR);
+        selectedTitle.setTextColor(resolveLauncherTextColor());
         selectedTitle.setPadding(0, 0, 0, 8);
 
         final ListView[] listViewHolder = new ListView[1];
@@ -1693,7 +1725,7 @@ public final class SuggestionBarView extends GridLayout {
 
         TextView allAppsTitle = new TextView(getContext());
         allAppsTitle.setText("Apps");
-        allAppsTitle.setTextColor(TEXT_COLOR);
+        allAppsTitle.setTextColor(resolveLauncherTextColor());
         allAppsTitle.setPadding(0, 16, 0, 8);
 
         EditText searchInput = new EditText(getContext());
@@ -1833,7 +1865,7 @@ public final class SuggestionBarView extends GridLayout {
 
         TextView title = new TextView(getContext());
         title.setText(TextUtils.isEmpty(folder.title) ? "Folder Apps" : folder.title);
-        title.setTextColor(TEXT_COLOR);
+        title.setTextColor(resolveLauncherTextColor());
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setTextSize(14f);
 
@@ -2184,13 +2216,13 @@ public final class SuggestionBarView extends GridLayout {
         layout.setPadding(dp(16), dp(12), dp(16), dp(12));
         GradientDrawable panel = new GradientDrawable();
         panel.setCornerRadius(dp(14));
-        panel.setColor(0xEE1E1E1E);
-        panel.setStroke(dp(1), 0x33FFFFFF);
+        panel.setColor(withAlphaComponent(resolveLauncherPanelColor(), 0xEE));
+        panel.setStroke(dp(1), withAlphaComponent(resolveLauncherOutlineColor(), 0x66));
         layout.setBackground(panel);
 
         TextView title = new TextView(getContext());
         title.setText("Folder settings");
-        title.setTextColor(TEXT_COLOR);
+        title.setTextColor(resolveLauncherTextColor());
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setTextSize(14f);
         title.setPadding(0, 0, 0, dp(8));
@@ -2317,7 +2349,7 @@ public final class SuggestionBarView extends GridLayout {
 
         TextView title = new TextView(getContext());
         title.setText(TextUtils.isEmpty(folder.title) ? "Folder" : folder.title);
-        title.setTextColor(TEXT_COLOR);
+        title.setTextColor(resolveLauncherTextColor());
         title.setTextSize(12f);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -2574,7 +2606,7 @@ public final class SuggestionBarView extends GridLayout {
 
         TextView header = new TextView(getContext());
         header.setText(context.entry.label);
-        header.setTextColor(TEXT_COLOR);
+        header.setTextColor(resolveLauncherTextColor());
         header.setTextSize(12f);
         header.setTypeface(Typeface.DEFAULT_BOLD);
         header.setPadding(dp(8), dp(4), dp(8), dp(6));
@@ -2679,7 +2711,7 @@ public final class SuggestionBarView extends GridLayout {
         TextView header = new TextView(getContext());
         String title = TextUtils.isEmpty(folder.title) ? "Folder" : folder.title;
         header.setText(title);
-        header.setTextColor(TEXT_COLOR);
+        header.setTextColor(resolveLauncherTextColor());
         header.setTextSize(12f);
         header.setTypeface(Typeface.DEFAULT_BOLD);
         header.setPadding(dp(8), dp(4), dp(8), dp(6));
@@ -2907,7 +2939,7 @@ public final class SuggestionBarView extends GridLayout {
     private TextView addPopupActionRow(@NonNull LinearLayout shell, @NonNull String title, int tintBase, @NonNull Runnable action) {
         TextView actionRow = new TextView(getContext());
         actionRow.setText(title);
-        actionRow.setTextColor(TEXT_COLOR);
+        actionRow.setTextColor(resolveLauncherTextColor());
         actionRow.setTextSize(12f);
         actionRow.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
         actionRow.setPadding(dp(8), dp(7), dp(8), dp(7));
@@ -2984,11 +3016,11 @@ public final class SuggestionBarView extends GridLayout {
             int fill = blendColors((0x8C << 24) | (tintBase & 0x00FFFFFF), 0x66FFFFFF, 0.35f);
             bg.setColor(fill);
             bg.setStroke(dp(1), blendColors(0x99FFFFFF, (0xFF << 24) | (tintBase & 0x00FFFFFF), 0.5f));
-            row.setTextColor(0xFFF0ECE0);
+            row.setTextColor(resolveLauncherSelectedTextColor());
         } else {
             bg.setColor(0x00000000);
             bg.setStroke(0, 0x00000000);
-            row.setTextColor(TEXT_COLOR);
+            row.setTextColor(resolveLauncherTextColor());
         }
         row.setBackground(bg);
     }
@@ -3429,26 +3461,26 @@ public final class SuggestionBarView extends GridLayout {
 
             ImageView drag = new ImageView(parent.getContext());
             drag.setImageResource(R.drawable.ic_drag_indicator_24);
-            drag.setColorFilter(TEXT_COLOR);
+            drag.setColorFilter(resolveLauncherTextColor());
             LinearLayout.LayoutParams dragParams = new LinearLayout.LayoutParams(dpStatic(parent, 20), dpStatic(parent, 20));
             dragParams.setMargins(0, 0, dpStatic(parent, 8), 0);
             row.addView(drag, dragParams);
 
             ImageView folder = new ImageView(parent.getContext());
             folder.setImageResource(R.drawable.ic_folder_24);
-            folder.setColorFilter(TEXT_COLOR);
+            folder.setColorFilter(resolveLauncherTextColor());
             LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(dpStatic(parent, 18), dpStatic(parent, 18));
             folderParams.setMargins(0, 0, dpStatic(parent, 6), 0);
             row.addView(folder, folderParams);
 
             TextView label = new TextView(parent.getContext());
-            label.setTextColor(TEXT_COLOR);
+            label.setTextColor(resolveLauncherTextColor());
             label.setSingleLine(true);
             label.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
             ImageButton delete = new ImageButton(parent.getContext());
             delete.setImageResource(R.drawable.ic_delete_sweep_24);
-            delete.setColorFilter(TEXT_COLOR);
+            delete.setColorFilter(resolveLauncherTextColor());
             delete.setBackgroundColor(0x00000000);
             delete.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
             delete.setPadding(dpStatic(parent, 2), dpStatic(parent, 2), dpStatic(parent, 2), dpStatic(parent, 2));
@@ -3902,7 +3934,7 @@ public final class SuggestionBarView extends GridLayout {
 
         TextView title = new TextView(getContext());
         title.setText(label);
-        title.setTextColor(TEXT_COLOR);
+        title.setTextColor(resolveLauncherTextColor());
         row.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         ImageButton minus = new ImageButton(getContext());
@@ -3911,7 +3943,7 @@ public final class SuggestionBarView extends GridLayout {
         row.addView(minus, new LinearLayout.LayoutParams(dp(24), dp(24)));
 
         TextView valueText = new TextView(getContext());
-        valueText.setTextColor(TEXT_COLOR);
+        valueText.setTextColor(resolveLauncherTextColor());
         valueText.setTypeface(Typeface.DEFAULT_BOLD);
         valueText.setText(Integer.toString(valueRef[0]));
         valueText.setGravity(Gravity.CENTER);
@@ -4357,7 +4389,7 @@ public final class SuggestionBarView extends GridLayout {
 
     private void styleGhostButton(@NonNull Button button) {
         button.setBackgroundColor(0x00000000);
-        button.setTextColor(TEXT_COLOR);
+        button.setTextColor(resolveLauncherTextColor());
         button.setAllCaps(false);
     }
 
@@ -4365,7 +4397,7 @@ public final class SuggestionBarView extends GridLayout {
         button.setBackgroundColor(0x00000000);
         button.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
         button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        button.setColorFilter(TEXT_COLOR);
+        button.setColorFilter(resolveLauncherTextColor());
     }
 
     private int computePinnedItemsPerPage() {

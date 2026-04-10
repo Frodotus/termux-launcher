@@ -52,6 +52,7 @@ import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 import com.github.mmin18.widget.RealtimeBlurView;
+import com.google.android.material.color.MaterialColors;
 import com.termux.R;
 import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.launcher.animation.LauncherTransitionController;
@@ -581,9 +582,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private int resolveGlassSurfaceBaseColor() {
         if (mPreferences != null
             && (mPreferences.isMonetBackgroundEnabled() || mPreferences.isMonetOverlayEnabled())) {
-            return ContextCompat.getColor(this, R.color.background_accent);
+            return ContextCompat.getColor(this, R.color.termux_accent_container);
         }
-        int overlayColor = mProperties != null ? mProperties.getBackgroundOverlayColor() : Color.BLACK;
+        int overlayColor = mProperties != null
+            ? mProperties.getBackgroundOverlayColor()
+            : ContextCompat.getColor(this, R.color.termux_surface_panel_high);
         return 0xFF000000 | (overlayColor & 0x00FFFFFF);
     }
 
@@ -1858,16 +1861,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private int resolveAzGestureAccentColor() {
-        int fallback = ContextCompat.getColor(this, R.color.main_accent);
-        try {
-            if (mPreferences != null
-                && (mPreferences.isMonetBackgroundEnabled() || mPreferences.isMonetOverlayEnabled())
-                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                return ContextCompat.getColor(this, android.R.color.system_accent1_500);
-            }
-        } catch (Exception ignored) {
-        }
-        return fallback;
+        return MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary,
+            ContextCompat.getColor(this, R.color.termux_primary));
     }
 
     private int mutedMonetShade(int color) {
@@ -2526,7 +2521,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 session.getEmulator().mColors.mCurrentColors[TextStyle.COLOR_INDEX_BACKGROUND]
             );
         } else {
-            getWindow().getDecorView().setBackgroundColor(ContextCompat.getColor(this, R.color.background_accent));
+            getWindow().getDecorView().setBackgroundColor(ContextCompat.getColor(this, R.color.termux_surface_base));
         }
     }
 

@@ -160,7 +160,7 @@
     <string name="termux_launcher_icons_header">Launcher: Icons</string>
     <string name="termux_launcher_icons_preferences_summary">Configure launcher icon rendering options</string>
     <string name="termux_terminal_background_header">Terminal Background</string>
-    <string name="termux_extrakeys_appsbar_header">Extra Keys &amp; Apps Bar</string>
+    <string name="termux_extrakeys_appsbar_header">Accessory Glass</string>
     <string name="apps_bar_search_header">Search</string>
     <string name="apps_bar_icons_header">Icons</string>
     <string name="apps_bar_visual_header">Visual</string>
@@ -236,7 +236,7 @@
 
         <!-- Termux Style Preferences -->
         <string name="termux_style_preferences_title">Look &amp; Feel</string>
-        <string name="termux_style_preferences_summary">Background, blur, and visual style settings</string>
+        <string name="termux_style_preferences_summary">Wallpaper passthrough, surfaces, and accessory glass settings</string>
 
         <string name="termux_privileged_access_preferences_title">Shizuku</string>
         <string name="termux_privileged_access_preferences_summary">Shizuku backend and privileged endpoint controls</string>
@@ -265,24 +265,24 @@
             <string name="termux_privileged_endpoint_exec_summary">Controls LauncherCtl privileged exec endpoint availability.</string>
 
             <!-- Background Category -->
-            <string name="termux_background_header">Background</string>
+            <string name="termux_background_header">Wallpaper &amp; Tint</string>
 
                 <string name="termux_use_system_wallpaper_title">Use wallpaper passthrough</string>
                 <string name="termux_use_system_wallpaper_on">Use the Android system wallpaper behind the terminal surfaces.</string>
                 <string name="termux_use_system_wallpaper_off">Use an opaque terminal background instead of wallpaper passthrough.</string>
                 
                 <!-- Monet Background -->
-                <string name="termux_monet_background_enabled_title">Terminal overlay material coloring</string>
-                <string name="termux_monet_background_enabled_off">Use the regular terminal overlay color from termux.properties. (Default)</string>
-                <string name="termux_monet_background_enabled_on">Tint the terminal overlay using wallpaper-derived Material colors.</string>
+                <string name="termux_monet_background_enabled_title">Use dynamic Material tint</string>
+                <string name="termux_monet_background_enabled_off">Use the terminal overlay color from termux.properties. (Default)</string>
+                <string name="termux_monet_background_enabled_on">Tint the terminal overlay with dynamic Material colors from the current wallpaper.</string>
                 <string name="termux_terminal_background_opacity_title">Terminal opacity</string>
-                <string name="termux_terminal_background_opacity_summary">Adjust the opacity of the terminal faux-glass overlay.</string>
+                <string name="termux_terminal_background_opacity_summary">Adjust the opacity of the terminal surface over wallpaper passthrough.</string>
             <!-- Extra Keys Category -->
             <string name="termux_extrakeys_header">Extra Keys Bar</string>
                 <string name="termux_extrakeys_blur_radius_title">Extra keys bar blur intensity</string>
                 <string name="termux_extrakeys_blur_radius_summary">Adjust the faux-glass blur used behind the extra keys bar.</string>
-                <string name="termux_app_bar_opacity_title">Extra keys bar opacity</string>
-                <string name="termux_app_bar_opacity_summary">Adjust the opacity of the extra keys bar surface.</string>
+                <string name="termux_app_bar_opacity_title">Accessory bar opacity</string>
+                <string name="termux_app_bar_opacity_summary">Adjust the opacity of the extra keys, apps bar, and A-Z glass surface.</string>
 
             <!-- App Launcher Category -->
             <string name="termux_app_launcher_header">Launcher: Settings</string>

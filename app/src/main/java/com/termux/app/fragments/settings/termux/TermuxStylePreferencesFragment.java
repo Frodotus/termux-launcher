@@ -333,10 +333,9 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
     private int getMonetSurfaceColor(@ColorInt int fallbackColor) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Use a mid-tone dynamic accent directly from Android Monet palette.
-                return ContextCompat.getColor(mContext, android.R.color.system_accent1_500);
+                return ContextCompat.getColor(mContext, R.color.termux_accent_container);
             }
-            return ContextCompat.getColor(mContext, R.color.main_accent);
+            return ContextCompat.getColor(mContext, R.color.termux_accent_container);
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Failed to resolve Monet surface color", e);
             return fallbackColor;

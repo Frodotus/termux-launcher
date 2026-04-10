@@ -9,24 +9,30 @@
       BaseActivity Light DarkActionBar theme.
       https://github.com/material-components/material-components-android/blob/1.4.0/lib/java/com/google/android/material/theme/res/values/themes.xml#L33
      -->
-    <style name="Theme.BaseActivity.Light.DarkActionBar" parent="Theme.MaterialComponents.Light.DarkActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/red_400</item>
-        <item name="colorPrimaryVariant">@color/red_800</item>
-        <item name="colorOnPrimary">@color/black</item>
-
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/grey_400</item>
-        <item name="colorSecondaryVariant">@color/grey_500</item>
-        <item name="colorOnSecondary">@color/black</item>
-
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
-        <item name="colorPrimaryDark" tools:targetApi="l">?attr/colorPrimary</item>
-
-        <!-- Text color. -->
-        <item name="android:textColorPrimary">@color/black</item>
-        <item name="android:textColorLink">@color/blue_link_dark</item>
+    <style name="Theme.BaseActivity.Light.DarkActionBar" parent="Theme.Material3.Light">
+        <item name="colorPrimary">@color/termux_primary</item>
+        <item name="colorOnPrimary">@color/termux_on_primary</item>
+        <item name="colorSecondary">@color/termux_secondary</item>
+        <item name="colorOnSecondary">@color/termux_on_secondary</item>
+        <item name="colorPrimaryContainer">@color/termux_accent_container</item>
+        <item name="colorOnPrimaryContainer">@color/termux_on_accent_container</item>
+        <item name="colorSecondaryContainer">@color/termux_accent_container</item>
+        <item name="colorOnSecondaryContainer">@color/termux_on_accent_container</item>
+        <item name="colorSurface">@color/termux_surface_base</item>
+        <item name="colorSurfaceVariant">@color/termux_surface_panel</item>
+        <item name="colorSurfaceContainer">@color/termux_surface_panel</item>
+        <item name="colorSurfaceContainerHigh">@color/termux_surface_panel_high</item>
+        <item name="colorSurfaceContainerHighest">@color/termux_surface_panel_highest</item>
+        <item name="colorOnSurface">@color/termux_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/termux_on_surface_variant</item>
+        <item name="colorOutlineVariant">@color/termux_outline_variant</item>
+        <item name="colorError">@color/termux_error</item>
+        <item name="colorErrorContainer">@color/termux_error_container</item>
+        <item name="colorOnErrorContainer">@color/termux_on_error_container</item>
+        <item name="android:statusBarColor" tools:targetApi="l">@color/termux_surface_base</item>
+        <item name="android:textColorPrimary">@color/termux_on_surface</item>
+        <item name="android:textColorSecondary">@color/termux_on_surface_variant</item>
+        <item name="android:textColorLink">@color/blue_link_light</item>
 
         <!--
          Dialog Themes.
@@ -49,7 +55,30 @@
 
 
     <!-- BaseActivity DayNight DarkActionBar theme. -->
-    <style name="Theme.BaseActivity.DayNight.DarkActionBar" parent="Theme.BaseActivity.Light.DarkActionBar"/>
+    <style name="Theme.BaseActivity.DayNight.DarkActionBar" parent="Theme.Material3.DayNight">
+        <item name="colorPrimary">@color/termux_primary</item>
+        <item name="colorOnPrimary">@color/termux_on_primary</item>
+        <item name="colorSecondary">@color/termux_secondary</item>
+        <item name="colorOnSecondary">@color/termux_on_secondary</item>
+        <item name="colorPrimaryContainer">@color/termux_accent_container</item>
+        <item name="colorOnPrimaryContainer">@color/termux_on_accent_container</item>
+        <item name="colorSecondaryContainer">@color/termux_accent_container</item>
+        <item name="colorOnSecondaryContainer">@color/termux_on_accent_container</item>
+        <item name="colorSurface">@color/termux_surface_base</item>
+        <item name="colorSurfaceVariant">@color/termux_surface_panel</item>
+        <item name="colorSurfaceContainer">@color/termux_surface_panel</item>
+        <item name="colorSurfaceContainerHigh">@color/termux_surface_panel_high</item>
+        <item name="colorSurfaceContainerHighest">@color/termux_surface_panel_highest</item>
+        <item name="colorOnSurface">@color/termux_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/termux_on_surface_variant</item>
+        <item name="colorOutlineVariant">@color/termux_outline_variant</item>
+        <item name="colorError">@color/termux_error</item>
+        <item name="colorErrorContainer">@color/termux_error_container</item>
+        <item name="colorOnErrorContainer">@color/termux_on_error_container</item>
+        <item name="android:textColorPrimary">@color/termux_on_surface</item>
+        <item name="android:textColorSecondary">@color/termux_on_surface_variant</item>
+        <item name="android:textColorLink">@color/blue_link_dark</item>
+    </style>
     <!-- BaseActivity DayNight NoActionBar theme. -->
     <style name="Theme.BaseActivity.DayNight.NoActionBar" parent="Theme.BaseActivity.Light.NoActionBar"/>
 
@@ -71,21 +100,12 @@
       BaseDialog Light theme.
       https://github.com/material-components/material-components-android/blob/1.4.0/lib/java/com/google/android/material/dialog/res/values/themes.xml#L70
      -->
-    <style name="ThemeOverlay.BaseDialog.Light" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/red_400</item>
-        <item name="colorPrimaryVariant">@color/red_800</item>
-        <item name="colorOnPrimary">@color/black</item>
-
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/grey_400</item>
-        <item name="colorSecondaryVariant">@color/grey_500</item>
-        <item name="colorOnSecondary">@color/black</item>
-
-        <!-- Surface color. -->
-        <item name="colorSurface">@color/design_dark_default_color_surface</item>
-        <item name="colorOnSurface">@color/design_dark_default_color_on_surface</item>
-
+    <style name="ThemeOverlay.BaseDialog.Light" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorPrimary">@color/termux_primary</item>
+        <item name="colorOnPrimary">@color/termux_on_primary</item>
+        <item name="colorSurface">@color/termux_surface_panel_high</item>
+        <item name="colorOnSurface">@color/termux_on_surface</item>
+        <item name="colorOutlineVariant">@color/termux_outline_variant</item>
         <!-- Dialog title panel style. -->
         <item name="materialAlertDialogTitlePanelStyle">@style/BaseDialog.Title.Panel</item>
 
