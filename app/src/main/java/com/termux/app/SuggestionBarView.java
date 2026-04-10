@@ -300,6 +300,11 @@ public final class SuggestionBarView extends GridLayout {
             ContextCompat.getColor(getContext(), R.color.termux_on_surface));
     }
 
+    private static int resolveLauncherTextColor(@NonNull View view) {
+        return MaterialColors.getColor(view, com.google.android.material.R.attr.colorOnSurface,
+            ContextCompat.getColor(view.getContext(), R.color.termux_on_surface));
+    }
+
     private int resolveLauncherSubtleTextColor() {
         return MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant,
             ContextCompat.getColor(getContext(), R.color.termux_on_surface_variant));
@@ -3458,29 +3463,30 @@ public final class SuggestionBarView extends GridLayout {
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dpStatic(parent, 6), dpStatic(parent, 8), dpStatic(parent, 4), dpStatic(parent, 8));
+            final int textColor = resolveLauncherTextColor(parent);
 
             ImageView drag = new ImageView(parent.getContext());
             drag.setImageResource(R.drawable.ic_drag_indicator_24);
-            drag.setColorFilter(resolveLauncherTextColor());
+            drag.setColorFilter(textColor);
             LinearLayout.LayoutParams dragParams = new LinearLayout.LayoutParams(dpStatic(parent, 20), dpStatic(parent, 20));
             dragParams.setMargins(0, 0, dpStatic(parent, 8), 0);
             row.addView(drag, dragParams);
 
             ImageView folder = new ImageView(parent.getContext());
             folder.setImageResource(R.drawable.ic_folder_24);
-            folder.setColorFilter(resolveLauncherTextColor());
+            folder.setColorFilter(textColor);
             LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(dpStatic(parent, 18), dpStatic(parent, 18));
             folderParams.setMargins(0, 0, dpStatic(parent, 6), 0);
             row.addView(folder, folderParams);
 
             TextView label = new TextView(parent.getContext());
-            label.setTextColor(resolveLauncherTextColor());
+            label.setTextColor(textColor);
             label.setSingleLine(true);
             label.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
             ImageButton delete = new ImageButton(parent.getContext());
             delete.setImageResource(R.drawable.ic_delete_sweep_24);
-            delete.setColorFilter(resolveLauncherTextColor());
+            delete.setColorFilter(textColor);
             delete.setBackgroundColor(0x00000000);
             delete.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
             delete.setPadding(dpStatic(parent, 2), dpStatic(parent, 2), dpStatic(parent, 2), dpStatic(parent, 2));
