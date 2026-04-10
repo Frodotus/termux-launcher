@@ -75,6 +75,13 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 mPreferences.setUseSystemWallpaperEnabled(value);
                 TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
                 break;
+            case "terminal_material_tint_enabled":
+                setTerminalMaterialTintEnabled(value);
+                break;
+            case "accessory_material_tint_enabled":
+                mPreferences.setAccessoryMaterialTintEnabled(value);
+                TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
+                break;
             case "extrakeys_blur_enabled":
                 // Legacy compatibility: map old boolean writes to the new radius-driven model.
                 mPreferences.setExtraKeysBlurRadius(value ? Math.max(1, mPreferences.getExtraKeysBlurRadius()) : 0);
@@ -83,11 +90,11 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 // Sessions blur is no longer user-facing in the hybrid model.
                 break;
             case "monet_background_enabled":
-                setMonetBackgroundAndOverlayEnabled(value);
+                setTerminalAndAccessoryMaterialTintEnabled(value);
                 break;
             case "monet_overlay_enabled":
                 // Legacy compatibility: keep both toggles in sync even if old UI writes this key.
-                setMonetBackgroundAndOverlayEnabled(value);
+                setTerminalAndAccessoryMaterialTintEnabled(value);
                 break;
             case "app_launcher_bw_icons":
                 mPreferences.setAppLauncherBwIconsEnabled(value);
@@ -110,14 +117,18 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
         switch(key) {
             case "use_system_wallpaper":
                 return mPreferences.isUseSystemWallpaperEnabled();
+            case "terminal_material_tint_enabled":
+                return mPreferences.isTerminalMaterialTintEnabled();
+            case "accessory_material_tint_enabled":
+                return mPreferences.isAccessoryMaterialTintEnabled();
             case "extrakeys_blur_enabled":
                 return mPreferences.getExtraKeysBlurRadius() > 0;
             case "sessions_blur_enabled":
                 return false;
             case "monet_background_enabled":
-                return mPreferences.isMonetBackgroundEnabled();
+                return mPreferences.isTerminalMaterialTintEnabled() && mPreferences.isAccessoryMaterialTintEnabled();
             case "monet_overlay_enabled":
-                return mPreferences.isMonetBackgroundEnabled();
+                return mPreferences.isTerminalMaterialTintEnabled() && mPreferences.isAccessoryMaterialTintEnabled();
             case "app_launcher_bw_icons":
                 return mPreferences.isAppLauncherBwIconsEnabled();
             case "app_launcher_az_row_enabled":
@@ -251,22 +262,27 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
         Properties properties = loadTermuxProperties();
         String currentValue = properties.getProperty(TermuxPropertyConstants.KEY_BACKGROUND_OVERLAY_COLOR);
         int baseColor = baseColorOverride != null ? baseColorOverride : TermuxSharedProperties.getBackgroundOverlayInternalPropertyValueFromValue(currentValue);
-        if (mPreferences.isMonetOverlayEnabled()) {
+        if (mPreferences.isTerminalMaterialTintEnabled()) {
             baseColor = getMonetSurfaceColor(baseColor);
         }
         int newColor = (baseColor & 0x00FFFFFF) | (alpha << 24);
         writeOverlayColorToProperties(String.format("#%08X", newColor));
     }
 
-    private void setMonetBackgroundAndOverlayEnabled(boolean enabled) {
+    private void setTerminalAndAccessoryMaterialTintEnabled(boolean enabled) {
+        setTerminalMaterialTintEnabled(enabled);
+        mPreferences.setAccessoryMaterialTintEnabled(enabled);
+        TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
+    }
+
+    private void setTerminalMaterialTintEnabled(boolean enabled) {
         if (enabled) {
             String current = getCurrentOverlayColorString();
             if (current != null && !current.isEmpty()) {
                 mPreferences.setManualOverlayColor(current);
             }
         }
-        mPreferences.setMonetBackgroundEnabled(enabled);
-        mPreferences.setMonetOverlayEnabled(enabled);
+        mPreferences.setTerminalMaterialTintEnabled(enabled);
         Integer manualOverride = null;
         if (!enabled) {
             String manualColor = mPreferences.getManualOverlayColor();
@@ -275,7 +291,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
             }
         }
         syncBackgroundOverlayColor(mPreferences.getTerminalBackgroundOpacity(), manualOverride);
-        TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
     }
 
     private String getCurrentOverlayColorString() {

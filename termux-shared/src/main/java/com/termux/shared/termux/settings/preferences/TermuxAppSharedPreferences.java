@@ -500,6 +500,30 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_MONET_OVERLAY_ENABLED, value, false);
     }
 
+    public boolean isTerminalMaterialTintEnabled() {
+        if (mSharedPreferences.contains(TERMUX_APP.KEY_TERMINAL_MATERIAL_TINT_ENABLED)) {
+            return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_MATERIAL_TINT_ENABLED,
+                TERMUX_APP.DEFAULT_VALUE_TERMINAL_MATERIAL_TINT_ENABLED);
+        }
+        return isMonetBackgroundEnabled() || isMonetOverlayEnabled();
+    }
+
+    public void setTerminalMaterialTintEnabled(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_MATERIAL_TINT_ENABLED, value, false);
+    }
+
+    public boolean isAccessoryMaterialTintEnabled() {
+        if (mSharedPreferences.contains(TERMUX_APP.KEY_ACCESSORY_MATERIAL_TINT_ENABLED)) {
+            return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_ACCESSORY_MATERIAL_TINT_ENABLED,
+                TERMUX_APP.DEFAULT_VALUE_ACCESSORY_MATERIAL_TINT_ENABLED);
+        }
+        return isMonetBackgroundEnabled() || isMonetOverlayEnabled();
+    }
+
+    public void setAccessoryMaterialTintEnabled(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_ACCESSORY_MATERIAL_TINT_ENABLED, value, false);
+    }
+
     public String getManualOverlayColor() {
         return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_MANUAL_OVERLAY_COLOR, TERMUX_APP.DEFAULT_VALUE_MANUAL_OVERLAY_COLOR, true);
     }

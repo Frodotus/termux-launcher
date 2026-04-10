@@ -12,12 +12,6 @@
             app:title="@string/termux_use_system_wallpaper_title"
             app:summaryOn="@string/termux_use_system_wallpaper_on"
             app:summaryOff="@string/termux_use_system_wallpaper_off" />
-
-        <SwitchPreferenceCompat
-            app:key="monet_background_enabled"
-            app:summaryOff="@string/termux_monet_background_enabled_off"
-            app:summaryOn="@string/termux_monet_background_enabled_on"
-            app:title="@string/termux_monet_background_enabled_title" />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -32,6 +26,12 @@
             android:max="100"
             android:defaultValue="100"
             app:showSeekBarValue="true" />
+
+        <SwitchPreferenceCompat
+            app:key="terminal_material_tint_enabled"
+            app:title="@string/termux_terminal_material_tint_enabled_title"
+            app:summaryOn="@string/termux_terminal_material_tint_enabled_on"
+            app:summaryOff="@string/termux_terminal_material_tint_enabled_off" />
 
     </PreferenceCategory>
 
@@ -56,6 +56,12 @@
             android:max="100"
             android:defaultValue="50"
             app:showSeekBarValue="true" />
+
+        <SwitchPreferenceCompat
+            app:key="accessory_material_tint_enabled"
+            app:title="@string/termux_accessory_material_tint_enabled_title"
+            app:summaryOn="@string/termux_accessory_material_tint_enabled_on"
+            app:summaryOff="@string/termux_accessory_material_tint_enabled_off" />
     </PreferenceCategory>
 
     <PreferenceCategory

@@ -1,10 +1,12 @@
 package com.termux.app.activities;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import com.termux.R;
@@ -27,16 +29,40 @@ import com.termux.shared.theme.NightMode;
 
 public class SettingsActivity extends AppCompatActivity {
 
+    public static final String EXTRA_INITIAL_FRAGMENT = "settings_initial_fragment";
+    public static final String EXTRA_INITIAL_TITLE_RES = "settings_initial_title_res";
+
+    public static Intent createFragmentIntent(@NonNull Context context, @NonNull Class<? extends Fragment> fragmentClass, int titleResId) {
+        Intent intent = new Intent(context, SettingsActivity.class);
+        intent.putExtra(EXTRA_INITIAL_FRAGMENT, fragmentClass.getName());
+        if (titleResId != 0) {
+            intent.putExtra(EXTRA_INITIAL_TITLE_RES, titleResId);
+        }
+        return intent;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         AppCompatActivityUtils.setNightMode(this, NightMode.getAppNightMode().getName(), true);
         setContentView(R.layout.activity_settings);
         if (savedInstanceState == null) {
-            getSupportFragmentManager().beginTransaction().replace(R.id.settings, new RootPreferencesFragment()).commit();
+            Fragment initialFragment = buildInitialFragment();
+            getSupportFragmentManager().beginTransaction().replace(R.id.settings, initialFragment).commit();
         }
         AppCompatActivityUtils.setToolbar(this, com.termux.shared.R.id.toolbar);
         AppCompatActivityUtils.setShowBackButtonInActionBar(this, true);
+        int titleResId = getIntent().getIntExtra(EXTRA_INITIAL_TITLE_RES, R.string.title_activity_termux_settings);
+        setTitle(titleResId);
+    }
+
+    @NonNull
+    private Fragment buildInitialFragment() {
+        String fragmentClassName = getIntent().getStringExtra(EXTRA_INITIAL_FRAGMENT);
+        if (fragmentClassName == null || fragmentClassName.isEmpty()) {
+            return new RootPreferencesFragment();
+        }
+        return getSupportFragmentManager().getFragmentFactory().instantiate(getClassLoader(), fragmentClassName);
     }
 
     @Override

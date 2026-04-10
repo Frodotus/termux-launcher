@@ -1,7 +1,6 @@
 package com.termux.app;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
 import android.app.WallpaperManager;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
@@ -29,13 +28,10 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.os.UserHandle;
-import android.view.ContextMenu;
-import android.view.ContextMenu.ContextMenuInfo;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.SubMenu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -51,8 +47,10 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
+import android.widget.ArrayAdapter;
 import com.github.mmin18.widget.RealtimeBlurView;
 import com.google.android.material.color.MaterialColors;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.termux.R;
 import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.launcher.animation.LauncherTransitionController;
@@ -73,7 +71,6 @@ import com.termux.shared.android.PermissionUtils;
 import com.termux.shared.data.DataUtils;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_ACTIVITY;
-import com.termux.app.activities.HelpActivity;
 import com.termux.app.activities.SettingsActivity;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
@@ -96,6 +93,7 @@ import com.termux.view.TerminalViewClient;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -212,6 +210,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * The last toast shown, used cancel current toast before showing new in {@link #showToast(String, boolean)}.
      */
     Toast mLastToast;
+    @Nullable private AlertDialog mTerminalActionDialog;
 
     /**
      * If between onResume() and onStop(). Note that only one session is in the foreground of the terminal view at the
@@ -295,29 +294,35 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private static final int CONTEXT_MENU_SHARE_TRANSCRIPT_ID = 1;
 
-    private static final int CONTEXT_MENU_SHARE_SELECTED_TEXT = 10;
-    private static final int CONTEXT_MENU_AUTOFILL_USERNAME = 14;
-    private static final int CONTEXT_MENU_AUTOFILL_PASSWORD = 2;
-    private static final int CONTEXT_MENU_RESET_TERMINAL_ID = 3;
+    private static final int CONTEXT_MENU_SET_WALLPAPER_ID = 2;
 
-    private static final int CONTEXT_MENU_KILL_PROCESS_ID = 4;
+    private static final int CONTEXT_MENU_REMOVE_WALLPAPER_ID = 3;
 
-    private static final int CONTEXT_MENU_STYLING_ID = 5;
+    private static final int CONTEXT_MENU_LOOK_AND_FEEL_ID = 4;
 
-    private static final int CONTEXT_SUBMENU_FONT_AND_COLOR_ID = 11;
+    private static final int CONTEXT_MENU_APPS_BAR_ID = 5;
 
-    private static final int CONTEXT_SUBMENU_SET_BACKROUND_IMAGE_ID = 12;
+    private static final int CONTEXT_MENU_SETTINGS_ID = 6;
 
-    private static final int CONTEXT_SUBMENU_REMOVE_BACKGROUND_IMAGE_ID = 13;
+    private static final int CONTEXT_MENU_RESET_TERMINAL_ID = 7;
 
+    private static final int CONTEXT_MENU_KILL_PROCESS_ID = 8;
 
-    private static final int CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON = 6;
+    private static final class TerminalActionItem {
+        final int id;
+        final CharSequence title;
 
-    private static final int CONTEXT_MENU_HELP_ID = 7;
+        TerminalActionItem(int id, CharSequence title) {
+            this.id = id;
+            this.title = title;
+        }
 
-    private static final int CONTEXT_MENU_SETTINGS_ID = 8;
-
-    private static final int CONTEXT_MENU_REPORT_ID = 9;
+        @NonNull
+        @Override
+        public String toString() {
+            return title.toString();
+        }
+    }
 
     private static final String ARG_TERMINAL_TOOLBAR_TEXT_INPUT = "terminal_toolbar_text_input";
 
@@ -411,7 +416,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setSettingsButtonView();
         setNewSessionButtonView();
         setToggleKeyboardView();
-        registerForContextMenu(mTerminalView);
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
         try {
             // Start the {@link TermuxService} and make it run regardless of who is bound to it
@@ -537,12 +541,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (terminalSurfaceHost == null || terminalBodySurface == null) {
             return;
         }
-        int sharedSurfaceColor = resolveGlassSurfaceBaseColor();
-        applyGlassSurfaceColor(R.id.extrakeys_background, sharedSurfaceColor);
-        applyGlassSurfaceColor(R.id.activity_termux_bottom_space_background, sharedSurfaceColor);
-        applyGlassSurfaceColor(R.id.sessions_background, sharedSurfaceColor);
+        boolean wallpaperMode = shouldUseWallpaperPassthroughMode();
+        int accessoryBaseColor = wallpaperMode
+            ? resolveAccessoryGlassBaseColor()
+            : ContextCompat.getColor(this, R.color.termux_surface_base);
+        applyGlassSurfaceColor(R.id.extrakeys_background, accessoryBaseColor);
+        applyGlassSurfaceColor(R.id.activity_termux_bottom_space_background, accessoryBaseColor);
+        applyGlassSurfaceColor(R.id.sessions_background, accessoryBaseColor);
 
-        if (shouldUseWallpaperPassthroughMode()) {
+        if (wallpaperMode) {
             boolean showSurface = shouldShowTerminalGlassSurface();
             int terminalSurfaceColor = showSurface ? resolveTerminalSurfaceColor() : Color.TRANSPARENT;
             terminalSurfaceHost.setBackgroundColor(Color.TRANSPARENT);
@@ -558,8 +565,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
 
-        boolean showSurface = shouldShowTerminalGlassSurface();
-        int terminalSurfaceColor = showSurface ? resolveTerminalSurfaceColor() : Color.TRANSPARENT;
+        boolean showSurface = true;
+        int terminalSurfaceColor = resolveTerminalSurfaceColor();
         terminalSurfaceHost.setBackgroundColor(Color.TRANSPARENT);
         terminalBodySurface.setBackgroundColor(terminalSurfaceColor);
         terminalBodySurface.setVisibility(showSurface && Color.alpha(terminalSurfaceColor) > 0 ? View.VISIBLE : View.GONE);
@@ -573,15 +580,29 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void applyTerminalStatusBarSurfaceColor(boolean showSurface, int terminalSurfaceColor) {
-        int targetColor = showSurface && mSeamlessStatusBackgroundActive ? terminalSurfaceColor : Color.TRANSPARENT;
+        int targetColor;
+        if (!shouldUseWallpaperPassthroughMode()) {
+            targetColor = ContextCompat.getColor(this, R.color.termux_surface_base);
+        } else {
+            targetColor = showSurface && mSeamlessStatusBackgroundActive ? terminalSurfaceColor : Color.TRANSPARENT;
+        }
         if (getWindow() != null) {
             getWindow().setStatusBarColor(targetColor);
         }
     }
 
-    private int resolveGlassSurfaceBaseColor() {
-        if (mPreferences != null
-            && (mPreferences.isMonetBackgroundEnabled() || mPreferences.isMonetOverlayEnabled())) {
+    private int resolveTerminalGlassBaseColor() {
+        if (mPreferences != null && mPreferences.isTerminalMaterialTintEnabled()) {
+            return ContextCompat.getColor(this, R.color.termux_accent_container);
+        }
+        int overlayColor = mProperties != null
+            ? mProperties.getBackgroundOverlayColor()
+            : ContextCompat.getColor(this, R.color.termux_surface_panel_high);
+        return 0xFF000000 | (overlayColor & 0x00FFFFFF);
+    }
+
+    private int resolveAccessoryGlassBaseColor() {
+        if (mPreferences != null && mPreferences.isAccessoryMaterialTintEnabled()) {
             return ContextCompat.getColor(this, R.color.termux_accent_container);
         }
         int overlayColor = mProperties != null
@@ -603,7 +624,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private int resolveTerminalSurfaceColor() {
-        int baseColor = resolveGlassSurfaceBaseColor();
+        int baseColor = shouldUseWallpaperPassthroughMode()
+            ? resolveTerminalGlassBaseColor()
+            : ContextCompat.getColor(this, R.color.termux_surface_base);
         int alpha = Math.round(resolveOpacityAlpha(
             mPreferences != null ? mPreferences.getTerminalBackgroundOpacity() : 100
         ) * 255f);
@@ -611,7 +634,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private int resolveAccessorySurfaceColor(float surfaceAlpha) {
-        int baseColor = resolveGlassSurfaceBaseColor();
+        int baseColor = shouldUseWallpaperPassthroughMode()
+            ? resolveAccessoryGlassBaseColor()
+            : ContextCompat.getColor(this, R.color.termux_surface_base);
         int alpha = Math.round(Math.max(0f, Math.min(1f, surfaceAlpha)) * 255f);
         return (alpha << 24) | (baseColor & 0x00FFFFFF);
     }
@@ -678,8 +703,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mPreferences == null) {
             return false;
         }
-        return mPreferences.isMonetBackgroundEnabled()
-            || mPreferences.isMonetOverlayEnabled()
+        if (!shouldUseWallpaperPassthroughMode()) {
+            return true;
+        }
+        return mPreferences.isTerminalMaterialTintEnabled()
             || mPreferences.getTerminalBackgroundOpacity() > 0;
     }
 
@@ -952,7 +979,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mPreferences == null || mProperties == null || mProperties.isUsingFullScreen()) {
             return false;
         }
-        return shouldShowTerminalGlassSurface();
+        return shouldUseWallpaperPassthroughMode() && shouldShowTerminalGlassSurface();
     }
 
     private void applySeamlessStatusBackgroundModeIfNeeded() {
@@ -1312,7 +1339,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSuggestionBarView.setIconScale(mPreferences.getAppLauncherIconScale());
         mSuggestionBarView.setAppBarOpacity(mPreferences.getAppBarOpacity());
         mSuggestionBarView.setBlurConfig(mPreferences.getExtraKeysBlurRadius() > 0, mPreferences.getExtraKeysBlurRadius());
-        mSuggestionBarView.setInheritedTintColor(resolveGlassSurfaceBaseColor());
+        mSuggestionBarView.setInheritedTintColor(resolveAccessoryGlassBaseColor());
         mSuggestionBarView.setAppDataProvider(mLauncherAppDataProvider);
         mSuggestionBarView.setConfigRepository(mLauncherConfigRepository);
         mSuggestionBarView.setAppCatalogChangedListener(this::syncAzScrubLettersAndTint);
@@ -2163,10 +2190,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void launchSystemWallpaperPicker() {
-        mPreferences.setUseSystemWallpaperEnabled(true);
-        requestTermuxActivityStylingOnNextResume(this, true);
         try {
             startActivity(new Intent(Intent.ACTION_SET_WALLPAPER));
+            mPreferences.setUseSystemWallpaperEnabled(true);
+            requestTermuxActivityStylingOnNextResume(this, true);
         } catch (ActivityNotFoundException e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "No system wallpaper picker available", e);
             showToast(getString(R.string.error_wallpaper_set_failed), true);
@@ -2178,6 +2205,97 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mPreferences.setTerminalBackgroundOpacity(100);
         mPreferences.setAppBarOpacity(100);
         updateTermuxActivityStyling(this, true);
+    }
+
+    private void openLookAndFeelSettings() {
+        ActivityUtils.startActivity(this,
+            SettingsActivity.createFragmentIntent(this,
+                com.termux.app.fragments.settings.termux.TermuxStylePreferencesFragment.class,
+                R.string.termux_style_preferences_title));
+    }
+
+    private void openAppsBarSettings() {
+        ActivityUtils.startActivity(this,
+            SettingsActivity.createFragmentIntent(this,
+                com.termux.app.fragments.settings.termux.LauncherPreferencesFragment.class,
+                R.string.termux_launcher_preferences_title));
+    }
+
+    private void openSettingsHome() {
+        ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class));
+    }
+
+    private boolean handleTerminalAction(int itemId) {
+        TerminalSession session = getCurrentSession();
+        switch(itemId) {
+            case CONTEXT_MENU_SELECT_URL_ID:
+                mTermuxTerminalViewClient.showUrlSelection();
+                return true;
+            case CONTEXT_MENU_SHARE_TRANSCRIPT_ID:
+                mTermuxTerminalViewClient.shareSessionTranscript();
+                return true;
+            case CONTEXT_MENU_SET_WALLPAPER_ID:
+                launchSystemWallpaperPicker();
+                return true;
+            case CONTEXT_MENU_REMOVE_WALLPAPER_ID:
+                makeTerminalBackgroundOpaque();
+                return true;
+            case CONTEXT_MENU_LOOK_AND_FEEL_ID:
+                openLookAndFeelSettings();
+                return true;
+            case CONTEXT_MENU_APPS_BAR_ID:
+                openAppsBarSettings();
+                return true;
+            case CONTEXT_MENU_SETTINGS_ID:
+                openSettingsHome();
+                return true;
+            case CONTEXT_MENU_RESET_TERMINAL_ID:
+                onResetTerminalSession(session);
+                return true;
+            case CONTEXT_MENU_KILL_PROCESS_ID:
+                showKillSessionDialog(session);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    public boolean showTerminalActionSheet() {
+        TerminalSession currentSession = getCurrentSession();
+        if (currentSession == null) {
+            return false;
+        }
+        if (mTerminalActionDialog != null && mTerminalActionDialog.isShowing()) {
+            return true;
+        }
+        List<TerminalActionItem> items = new ArrayList<>();
+        items.add(new TerminalActionItem(CONTEXT_MENU_SELECT_URL_ID, getString(R.string.action_select_url)));
+        items.add(new TerminalActionItem(CONTEXT_MENU_SHARE_TRANSCRIPT_ID, getString(R.string.action_share_transcript)));
+        items.add(new TerminalActionItem(CONTEXT_MENU_SET_WALLPAPER_ID, getString(R.string.action_set_background_image)));
+        items.add(new TerminalActionItem(CONTEXT_MENU_REMOVE_WALLPAPER_ID, getString(R.string.action_remove_background_image)));
+        items.add(new TerminalActionItem(CONTEXT_MENU_LOOK_AND_FEEL_ID, getString(R.string.action_look_and_feel)));
+        items.add(new TerminalActionItem(CONTEXT_MENU_APPS_BAR_ID, getString(R.string.action_apps_bar)));
+        items.add(new TerminalActionItem(CONTEXT_MENU_SETTINGS_ID, getString(R.string.action_open_settings)));
+        items.add(new TerminalActionItem(CONTEXT_MENU_RESET_TERMINAL_ID, getString(R.string.action_reset_terminal)));
+        items.add(new TerminalActionItem(CONTEXT_MENU_KILL_PROCESS_ID,
+            getString(R.string.action_kill_process, currentSession.getPid())));
+
+        ArrayAdapter<TerminalActionItem> adapter = new ArrayAdapter<>(this,
+            android.R.layout.simple_list_item_1, items);
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+            .setAdapter(adapter, (dialogInterface, which) -> handleTerminalAction(items.get(which).id))
+            .setOnDismissListener(dialogInterface -> {
+                if (mTerminalView != null) {
+                    mTerminalView.onContextMenuClosed(null);
+                }
+                if (mTerminalActionDialog == dialogInterface) {
+                    mTerminalActionDialog = null;
+                }
+            })
+            .create();
+        mTerminalActionDialog = dialog;
+        dialog.show();
+        return true;
     }
 
     @SuppressLint("RtlHardcoded")
@@ -2213,99 +2331,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mLastToast.show();
     }
 
-    @Override
-    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
-        TerminalSession currentSession = getCurrentSession();
-        if (currentSession == null) return;
-
-        boolean autoFillEnabled = mTerminalView.isAutoFillEnabled();
-
-        menu.add(Menu.NONE, CONTEXT_MENU_SELECT_URL_ID, Menu.NONE, R.string.action_select_url);
-        menu.add(Menu.NONE, CONTEXT_MENU_SHARE_TRANSCRIPT_ID, Menu.NONE, R.string.action_share_transcript);
-        if (!DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText()))
-            menu.add(Menu.NONE, CONTEXT_MENU_SHARE_SELECTED_TEXT, Menu.NONE, R.string.action_share_selected_text);
-        if (autoFillEnabled)
-            menu.add(Menu.NONE, CONTEXT_MENU_AUTOFILL_USERNAME, Menu.NONE, R.string.action_autofill_username);
-        if (autoFillEnabled)
-            menu.add(Menu.NONE, CONTEXT_MENU_AUTOFILL_PASSWORD, Menu.NONE, R.string.action_autofill_password);
-        menu.add(Menu.NONE, CONTEXT_MENU_RESET_TERMINAL_ID, Menu.NONE, R.string.action_reset_terminal);
-        menu.add(Menu.NONE, CONTEXT_MENU_KILL_PROCESS_ID, Menu.NONE, getResources().getString(R.string.action_kill_process, getCurrentSession().getPid())).setEnabled(currentSession.isRunning());
-        SubMenu subMenu = menu.addSubMenu(Menu.NONE, CONTEXT_MENU_STYLING_ID, Menu.NONE, R.string.action_style_terminal);
-        subMenu.clearHeader();
-        subMenu.add(SubMenu.NONE, CONTEXT_SUBMENU_FONT_AND_COLOR_ID, SubMenu.NONE, R.string.action_font_and_color);
-        subMenu.add(SubMenu.NONE, CONTEXT_SUBMENU_SET_BACKROUND_IMAGE_ID, SubMenu.NONE, R.string.action_set_background_image);
-        subMenu.add(SubMenu.NONE, CONTEXT_SUBMENU_REMOVE_BACKGROUND_IMAGE_ID, SubMenu.NONE, R.string.action_remove_background_image);
-        menu.add(Menu.NONE, CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON, Menu.NONE, R.string.action_toggle_keep_screen_on).setCheckable(true).setChecked(mPreferences.shouldKeepScreenOn());
-        menu.add(Menu.NONE, CONTEXT_MENU_HELP_ID, Menu.NONE, R.string.action_open_help);
-        menu.add(Menu.NONE, CONTEXT_MENU_SETTINGS_ID, Menu.NONE, R.string.action_open_settings);
-        menu.add(Menu.NONE, CONTEXT_MENU_REPORT_ID, Menu.NONE, R.string.action_report_issue);
-    }
-
     /**
-     * Hook system menu to show context menu instead.
+     * Hook system menu to show the terminal action sheet instead.
      */
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        mTerminalView.showContextMenu();
+        showTerminalActionSheet();
         return false;
     }
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
-        TerminalSession session = getCurrentSession();
-        switch(item.getItemId()) {
-            case CONTEXT_MENU_SELECT_URL_ID:
-                mTermuxTerminalViewClient.showUrlSelection();
-                return true;
-            case CONTEXT_MENU_SHARE_TRANSCRIPT_ID:
-                mTermuxTerminalViewClient.shareSessionTranscript();
-                return true;
-            case CONTEXT_MENU_SHARE_SELECTED_TEXT:
-                mTermuxTerminalViewClient.shareSelectedText();
-                return true;
-            case CONTEXT_MENU_AUTOFILL_USERNAME:
-                mTerminalView.requestAutoFillUsername();
-                return true;
-            case CONTEXT_MENU_AUTOFILL_PASSWORD:
-                mTerminalView.requestAutoFillPassword();
-                return true;
-            case CONTEXT_MENU_RESET_TERMINAL_ID:
-                onResetTerminalSession(session);
-                return true;
-            case CONTEXT_MENU_KILL_PROCESS_ID:
-                showKillSessionDialog(session);
-                return true;
-            case CONTEXT_SUBMENU_FONT_AND_COLOR_ID:
-                showFontAndColorDialog();
-                return true;
-            case CONTEXT_SUBMENU_SET_BACKROUND_IMAGE_ID:
-                launchSystemWallpaperPicker();
-                return true;
-            case CONTEXT_SUBMENU_REMOVE_BACKGROUND_IMAGE_ID:
-                makeTerminalBackgroundOpaque();
-                return true;
-            case CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON:
-                toggleKeepScreenOn();
-                return true;
-            case CONTEXT_MENU_HELP_ID:
-                ActivityUtils.startActivity(this, new Intent(this, HelpActivity.class));
-                return true;
-            case CONTEXT_MENU_SETTINGS_ID:
-                ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class));
-                return true;
-            case CONTEXT_MENU_REPORT_ID:
-                mTermuxTerminalViewClient.reportIssueFromTranscript();
-                return true;
-            default:
-                return super.onContextItemSelected(item);
+        if (handleTerminalAction(item.getItemId())) {
+            return true;
         }
-    }
-
-    @Override
-    public void onContextMenuClosed(Menu menu) {
-        super.onContextMenuClosed(menu);
-        // onContextMenuClosed() is triggered twice if back button is pressed to dismiss instead of tap for some reason
-        mTerminalView.onContextMenuClosed(menu);
+        return super.onContextItemSelected(item);
     }
 
     private void showKillSessionDialog(TerminalSession session) {
@@ -2330,29 +2370,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mTermuxTerminalSessionActivityClient.onResetTerminalSession();
         }
     }
-
-    private void showFontAndColorDialog() {
-        Intent stylingIntent = new Intent();
-        stylingIntent.setClassName(TermuxConstants.TERMUX_STYLING_PACKAGE_NAME, TermuxConstants.TERMUX_STYLING_APP.TERMUX_STYLING_ACTIVITY_NAME);
-        try {
-            startActivity(stylingIntent);
-        } catch (ActivityNotFoundException | IllegalArgumentException e) {
-            // The startActivity() call is not documented to throw IllegalArgumentException.
-            // However, crash reporting shows that it sometimes does, so catch it here.
-            new AlertDialog.Builder(this).setMessage(getString(R.string.error_styling_not_installed)).setPositiveButton(R.string.action_styling_install, (dialog, which) -> ActivityUtils.startActivity(this, new Intent(Intent.ACTION_VIEW, Uri.parse(TermuxConstants.TERMUX_STYLING_FDROID_PACKAGE_URL)))).setNegativeButton(android.R.string.cancel, null).show();
-        }
-    }
-
-    private void toggleKeepScreenOn() {
-        if (mTerminalView.getKeepScreenOn()) {
-            mTerminalView.setKeepScreenOn(false);
-            mPreferences.setKeepScreenOn(false);
-        } else {
-            mTerminalView.setKeepScreenOn(true);
-            mPreferences.setKeepScreenOn(true);
-        }
-    }
-
 
     /**
      * For processes to access primary external storage (/sdcard, /storage/emulated/0, ~/storage/shared),

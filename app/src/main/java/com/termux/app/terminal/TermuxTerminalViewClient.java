@@ -350,6 +350,11 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     }
 
     @Override
+    public boolean onShowContextMenu(TerminalView view) {
+        return mActivity.showTerminalActionSheet();
+    }
+
+    @Override
     public boolean onCodePoint(final int codePoint, boolean ctrlDown, TerminalSession session) {
         if (mVirtualFnKeyDown) {
             int resultingKeyCode = -1;

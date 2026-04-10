@@ -41,6 +41,10 @@ public interface TerminalViewClient {
 
     boolean onLongPress(MotionEvent event);
 
+    default boolean onShowContextMenu(TerminalView view) {
+        return false;
+    }
+
     boolean readControlKey();
 
     boolean readAltKey();

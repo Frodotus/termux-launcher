@@ -358,6 +358,20 @@ public final class TermuxPreferenceConstants {
         public static final boolean DEFAULT_VALUE_MONET_OVERLAY_ENABLED = false;
 
         /**
+         * Defines the key for whether dynamic Material tint should be used for the terminal surface.
+         */
+        public static final String KEY_TERMINAL_MATERIAL_TINT_ENABLED = "terminal_material_tint_enabled";
+
+        public static final boolean DEFAULT_VALUE_TERMINAL_MATERIAL_TINT_ENABLED = false;
+
+        /**
+         * Defines the key for whether dynamic Material tint should be used for the accessory stack.
+         */
+        public static final String KEY_ACCESSORY_MATERIAL_TINT_ENABLED = "accessory_material_tint_enabled";
+
+        public static final boolean DEFAULT_VALUE_ACCESSORY_MATERIAL_TINT_ENABLED = false;
+
+        /**
          * Stores the last manual overlay color so it can be restored when monet overlay is disabled.
          */
         public static final String KEY_MANUAL_OVERLAY_COLOR = "manual_overlay_color";

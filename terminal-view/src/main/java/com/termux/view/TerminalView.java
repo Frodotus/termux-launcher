@@ -952,6 +952,22 @@ public final class TerminalView extends View {
     }
 
     @Override
+    public boolean showContextMenu() {
+        if (mClient != null && mClient.onShowContextMenu(this)) {
+            return true;
+        }
+        return super.showContextMenu();
+    }
+
+    @Override
+    public boolean showContextMenu(float x, float y) {
+        if (mClient != null && mClient.onShowContextMenu(this)) {
+            return true;
+        }
+        return super.showContextMenu(x, y);
+    }
+
+    @Override
     public boolean onKeyPreIme(int keyCode, KeyEvent event) {
         if (TERMINAL_VIEW_KEY_LOGGING_ENABLED)
             mClient.logInfo(LOG_TAG, "onKeyPreIme(keyCode=" + keyCode + ", event=" + event + ")");
