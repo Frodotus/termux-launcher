@@ -116,7 +116,7 @@ public class TermuxStylePreferencesFragment extends PreferenceFragmentCompat {
     }
 
     private void updateIconScaleSummary(@NonNull SeekBarPreference preference, int value) {
-        preference.setSummary(value == 0
+        preference.setSummary(value >= 80
             ? getString(R.string.termux_app_launcher_icon_scale_auto)
             : Integer.toString(value));
     }
@@ -250,11 +250,17 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 TermuxActivity.updateTermuxActivityStyling(mContext, false);
                 break;
             case "app_launcher_icon_scale_percent":
-                mPreferences.setAppLauncherIconScale((DataUtils.clamp(value, 0, 80) + 100) / 100f);
+                if (value >= 80) {
+                    // Auto endpoint maps to legacy default scale.
+                    mPreferences.setAppLauncherIconScale(1.55f);
+                } else {
+                    mPreferences.setAppLauncherIconScale((DataUtils.clamp(value, 0, 79) + 100) / 100f);
+                }
                 TermuxActivity.updateTermuxActivityStyling(mContext, false);
                 break;
             case "app_launcher_bar_height_percent":
-                mPreferences.setAppLauncherBarHeightScale((140f + (DataUtils.clamp(value, 0, 200) * 0.4f)) / 100f);
+                // Normalized UI range 0..1 maps to internal 140..170.
+                mPreferences.setAppLauncherBarHeightScale((140f + (DataUtils.clamp(value, 0, 100) * 0.3f)) / 100f);
                 TermuxActivity.updateTermuxActivityStyling(mContext, false);
                 break;
             default:
@@ -280,9 +286,12 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
             case "app_launcher_button_count":
                 return mPreferences.getAppLauncherButtonCount();
             case "app_launcher_icon_scale_percent":
-                return DataUtils.clamp(Math.round(mPreferences.getAppLauncherIconScale() * 100f) - 100, 0, 80);
+                if (Math.round(mPreferences.getAppLauncherIconScale() * 100f) == 155) {
+                    return 80;
+                }
+                return DataUtils.clamp(Math.round(mPreferences.getAppLauncherIconScale() * 100f) - 100, 0, 79);
             case "app_launcher_bar_height_percent":
-                return DataUtils.clamp(Math.round(((mPreferences.getAppLauncherBarHeightScale() * 100f) - 140f) / 0.4f), 0, 200);
+                return DataUtils.clamp(Math.round(((mPreferences.getAppLauncherBarHeightScale() * 100f) - 140f) / 0.3f), 0, 100);
             default:
                 return defValue;
         }
