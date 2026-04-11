@@ -346,6 +346,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @Nullable private String mPendingAccessoryRenderReason;
     @Nullable private ViewTreeObserver.OnGlobalLayoutListener mAccessoryKeyboardLayoutListener;
     @Nullable private View.OnLayoutChangeListener mAccessoryLayoutChangeListener;
+    private final int[] mTmpParentLocation = new int[2];
     private final int[] mTmpViewLocation = new int[2];
     private long mLastAccessoryRenderSyncUptimeMs;
     private final Handler mAccessoryRenderHandler = new Handler(Looper.getMainLooper());
@@ -706,8 +707,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
         RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) layoutParams;
-        int targetTop = bounds != null ? bounds.top : 0;
-        int targetHeight = bounds != null ? Math.max(0, bounds.height()) : ViewGroup.LayoutParams.MATCH_PARENT;
+        int targetTop = 0;
+        int targetHeight = ViewGroup.LayoutParams.MATCH_PARENT;
         if (params.leftMargin != 0 || params.topMargin != targetTop ||
             params.rightMargin != 0 || params.width != ViewGroup.LayoutParams.MATCH_PARENT || params.height != targetHeight) {
             params.leftMargin = 0;
@@ -797,7 +798,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private boolean shouldUseAccessoryRenderEffectBlur(@NonNull AccessoryRenderState state) {
-        return false;
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            && shouldUseWallpaperPassthroughMode()
+            && state.toolbarShown
+            && state.blurEnabled;
     }
 
     private void clearAccessoryRenderEffectBackdrop() {
@@ -811,26 +815,35 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     @Nullable
-    private Bitmap createWallpaperBackdropBitmapForView(@NonNull View target) {
+    private Bitmap createWallpaperBackdropBitmapForView(@NonNull View target, @NonNull View wallpaperFrame) {
         Drawable wallpaper = WallpaperManager.getInstance(this).getDrawable();
         if (wallpaper == null) {
             return null;
         }
 
-        DisplayMetrics realMetrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getRealMetrics(realMetrics);
-        int screenWidth = Math.max(1, realMetrics.widthPixels);
-        int screenHeight = Math.max(1, realMetrics.heightPixels);
         int targetWidth = Math.max(1, target.getWidth());
         int targetHeight = Math.max(1, target.getHeight());
+        int frameWidth = Math.max(1, wallpaperFrame.getWidth());
+        int frameHeight = Math.max(1, wallpaperFrame.getHeight());
 
-        int intrinsicWidth = wallpaper.getIntrinsicWidth() > 0 ? wallpaper.getIntrinsicWidth() : screenWidth;
-        int intrinsicHeight = wallpaper.getIntrinsicHeight() > 0 ? wallpaper.getIntrinsicHeight() : screenHeight;
-        float scale = Math.max((float) screenWidth / intrinsicWidth, (float) screenHeight / intrinsicHeight);
-        int drawWidth = Math.max(screenWidth, Math.round(intrinsicWidth * scale));
-        int drawHeight = Math.max(screenHeight, Math.round(intrinsicHeight * scale));
-        int offsetLeft = Math.round((screenWidth - drawWidth) / 2f);
-        int offsetTop = Math.round((screenHeight - drawHeight) / 2f);
+        if (frameWidth <= 1 || frameHeight <= 1) {
+            DisplayMetrics realMetrics = new DisplayMetrics();
+            getWindowManager().getDefaultDisplay().getRealMetrics(realMetrics);
+            frameWidth = Math.max(1, realMetrics.widthPixels);
+            frameHeight = Math.max(1, realMetrics.heightPixels);
+        }
+
+        int intrinsicWidth = wallpaper.getIntrinsicWidth() > 0 ? wallpaper.getIntrinsicWidth() : frameWidth;
+        int intrinsicHeight = wallpaper.getIntrinsicHeight() > 0 ? wallpaper.getIntrinsicHeight() : frameHeight;
+        float scale = Math.max((float) frameWidth / intrinsicWidth, (float) frameHeight / intrinsicHeight);
+        int drawWidth = Math.max(frameWidth, Math.round(intrinsicWidth * scale));
+        int drawHeight = Math.max(frameHeight, Math.round(intrinsicHeight * scale));
+
+        wallpaperFrame.getLocationOnScreen(mTmpParentLocation);
+        int frameScreenX = mTmpParentLocation[0];
+        int frameScreenY = mTmpParentLocation[1];
+        int offsetLeft = frameScreenX + Math.round((frameWidth - drawWidth) / 2f);
+        int offsetTop = frameScreenY + Math.round((frameHeight - drawHeight) / 2f);
 
         target.getLocationOnScreen(mTmpViewLocation);
         int targetScreenX = mTmpViewLocation[0];
@@ -855,9 +868,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         ImageView backdrop = findViewById(R.id.accessory_blur_backdrop);
         View surfaceHost = findViewById(R.id.accessory_surface_host);
         View accessoryContainer = findViewById(R.id.accessory_stack_container);
-        Rect contentBounds = resolveAccessoryContentBounds();
-        applyAccessoryLayerBounds(R.id.accessory_surface_host, contentBounds);
-        if (backdrop == null || surfaceHost == null || accessoryContainer == null || accessoryContainer.getWidth() <= 0 || accessoryContainer.getHeight() <= 0 || contentBounds == null) {
+        View wallpaperFrame = findViewById(R.id.terminal_root_container);
+        applyAccessoryLayerBounds(R.id.accessory_surface_host, null);
+        if (backdrop == null || surfaceHost == null || accessoryContainer == null || wallpaperFrame == null ||
+            accessoryContainer.getWidth() <= 0 || accessoryContainer.getHeight() <= 0) {
             clearAccessoryRenderEffectBackdrop();
             return;
         }
@@ -866,7 +880,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
 
-        Bitmap wallpaperBackdrop = createWallpaperBackdropBitmapForView(surfaceHost);
+        Bitmap wallpaperBackdrop = createWallpaperBackdropBitmapForView(surfaceHost, wallpaperFrame);
         if (wallpaperBackdrop == null) {
             clearAccessoryRenderEffectBackdrop();
             return;
