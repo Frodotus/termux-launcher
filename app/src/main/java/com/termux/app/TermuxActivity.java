@@ -665,9 +665,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (!accessoryContainer.getGlobalVisibleRect(containerRect)) {
             return null;
         }
-        int left = Integer.MAX_VALUE;
         int top = Integer.MAX_VALUE;
-        int right = Integer.MIN_VALUE;
         int bottom = Integer.MIN_VALUE;
         int[] candidateIds = {
             R.id.apps_bar_viewpager,
@@ -684,18 +682,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 continue;
             }
             candidateRect.offset(-containerRect.left, -containerRect.top);
-            left = Math.min(left, candidateRect.left);
             top = Math.min(top, candidateRect.top);
-            right = Math.max(right, candidateRect.right);
             bottom = Math.max(bottom, candidateRect.bottom);
         }
-        if (left == Integer.MAX_VALUE || top == Integer.MAX_VALUE || right <= left || bottom <= top) {
+        if (top == Integer.MAX_VALUE || bottom <= top) {
             return null;
         }
         return new Rect(
-            Math.max(0, left),
+            0,
             Math.max(0, top),
-            Math.min(accessoryContainer.getWidth(), right),
+            accessoryContainer.getWidth(),
             Math.min(accessoryContainer.getHeight(), bottom)
         );
     }
@@ -710,50 +706,38 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
         RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) layoutParams;
-        View parent = (View) view.getParent();
-        int targetLeft = bounds != null ? bounds.left : 0;
         int targetTop = bounds != null ? bounds.top : 0;
-        int targetWidth = bounds != null ? Math.max(0, bounds.width()) : ViewGroup.LayoutParams.MATCH_PARENT;
         int targetHeight = bounds != null ? Math.max(0, bounds.height()) : ViewGroup.LayoutParams.MATCH_PARENT;
-        int parentWidth = parent != null ? parent.getWidth() : 0;
-        int targetRight = bounds != null && parentWidth > 0 ? Math.max(0, parentWidth - bounds.right) : 0;
-        if (params.leftMargin != targetLeft || params.topMargin != targetTop ||
-            params.rightMargin != targetRight || params.width != targetWidth || params.height != targetHeight) {
-            params.leftMargin = targetLeft;
+        if (params.leftMargin != 0 || params.topMargin != targetTop ||
+            params.rightMargin != 0 || params.width != ViewGroup.LayoutParams.MATCH_PARENT || params.height != targetHeight) {
+            params.leftMargin = 0;
             params.topMargin = targetTop;
-            params.rightMargin = targetRight;
-            params.width = targetWidth;
+            params.rightMargin = 0;
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT;
             params.height = targetHeight;
             view.setLayoutParams(params);
         }
     }
 
-    private void configureAccessorySurfaceChrome(@Nullable Rect bounds, float barAlpha) {
-        View surfaceHost = findViewById(R.id.accessory_surface_host);
-        if (!(surfaceHost instanceof FrameLayout)) {
+    private void configureAccessoryTopEdgeFx(boolean visible, float barAlpha) {
+        View edgeFx = findViewById(R.id.accessory_top_edge_fx);
+        if (edgeFx == null) {
+            return;
+        }
+        if (!visible) {
+            edgeFx.setVisibility(View.GONE);
+            edgeFx.setBackground(null);
             return;
         }
 
-        float density = getResources().getDisplayMetrics().density;
-        float topCornerRadius = 22f * density;
-        int fillColor = resolveAccessorySurfaceColor(Math.max(0.04f, barAlpha * 0.08f));
-        int strokeColor = withAlphaComponent(resolveAccessoryOutlineColor(), Math.round(28 * Math.max(0.45f, barAlpha)));
-
-        GradientDrawable chrome = new GradientDrawable();
-        chrome.setShape(GradientDrawable.RECTANGLE);
-        chrome.setColor(fillColor);
-        chrome.setCornerRadii(new float[] {
-            topCornerRadius, topCornerRadius,
-            topCornerRadius, topCornerRadius,
-            0f, 0f,
-            0f, 0f
-        });
-        chrome.setStroke(Math.max(1, Math.round(density)), strokeColor);
-
-        surfaceHost.setBackground(chrome);
-        surfaceHost.setClipToOutline(true);
-        surfaceHost.setElevation(bounds != null ? 10f * density : 0f);
-        surfaceHost.setTranslationZ(bounds != null ? 10f * density : 0f);
+        int highlight = withAlphaComponent(Color.WHITE, Math.round(30f * Math.max(0.35f, barAlpha)));
+        int shadow = withAlphaComponent(resolveAccessoryOutlineColor(), Math.round(26f * Math.max(0.40f, barAlpha)));
+        GradientDrawable edge = new GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            new int[] { highlight, shadow, Color.TRANSPARENT }
+        );
+        edgeFx.setBackground(edge);
+        edgeFx.setVisibility(View.VISIBLE);
     }
 
     private boolean shouldShowTerminalGlassSurface() {
@@ -960,7 +944,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 azFxUnderlay.setVisibility(View.GONE);
             }
             clearAccessoryRenderEffectBackdrop();
-            configureAccessorySurfaceChrome(null, state.barAlpha);
+            configureAccessoryTopEdgeFx(false, state.barAlpha);
             resetAzOverflowAffordanceState();
             return;
         }
@@ -998,7 +982,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (extraKeysBackgroundBlur != null) {
             extraKeysBackgroundBlur.setVisibility(state.blurEnabled && !useRenderEffectBlur ? View.VISIBLE : View.GONE);
         }
-        configureAccessorySurfaceChrome(resolveAccessoryContentBounds(), state.barAlpha);
+        configureAccessoryTopEdgeFx(true, state.barAlpha);
         updateAccessoryRenderEffectBackdrop(state);
         updateAzOverflowAffordance();
     }

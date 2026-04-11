@@ -171,6 +171,13 @@
                     android:scaleType="fitXY"
                     android:visibility="gone" />
 
+                <View
+                    android:id="@+id/accessory_top_edge_fx"
+                    android:layout_width="match_parent"
+                    android:layout_height="12dp"
+                    android:layout_gravity="top"
+                    android:visibility="gone" />
+
                 <com.github.mmin18.widget.RealtimeBlurView
                     android:id="@+id/extrakeys_backgroundblur"
                     android:layout_width="match_parent"
