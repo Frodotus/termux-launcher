@@ -2438,8 +2438,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         cropOptions.customOutputUri = getManagedWallpaperTempFileUri(tempCropFile);
         cropOptions.outputCompressFormat = Bitmap.CompressFormat.PNG;
         cropOptions.outputCompressQuality = 100;
-        cropOptions.activityTitle = getString(R.string.action_set_background_image);
-        cropOptions.cropMenuCropButtonTitle = getString(R.string.action_set_background_image);
+        cropOptions.activityTitle = "";
+        cropOptions.cropMenuCropButtonTitle = null;
         cropOptions.activityBackgroundColor = getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
         cropOptions.backgroundColor = withAlphaComponent(Color.BLACK, 176);
         cropOptions.guidelinesColor = withAlphaComponent(Color.WHITE, 190);
@@ -2469,29 +2469,52 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
 
-        if (!applyManagedWallpaper(croppedUri)) {
-            showToast(getString(R.string.error_wallpaper_set_failed), true);
-            return;
-        }
-
-        setWallpaperModeEnabled(this, true);
-        View rootView = findViewById(R.id.activity_termux_root_view);
-        if (rootView != null) {
-            rootView.post(this::applyWallpaperOffsetFixIfNeeded);
-        }
-        scheduleAccessoryRenderSync("wallpaper-crop-applied");
+        showWallpaperTargetPrompt(croppedUri);
     }
 
-    private boolean applyManagedWallpaper(@NonNull Uri croppedUri) {
+    private void showWallpaperTargetPrompt(@NonNull Uri croppedUri) {
+        String[] targets = new String[] {
+            getString(R.string.wallpaper_target_home_screen),
+            getString(R.string.wallpaper_target_lock_screen),
+            getString(R.string.wallpaper_target_home_and_lock_screen)
+        };
+        int[] flags = new int[] {
+            WallpaperManager.FLAG_SYSTEM,
+            WallpaperManager.FLAG_LOCK,
+            WallpaperManager.FLAG_SYSTEM | WallpaperManager.FLAG_LOCK
+        };
+        new MaterialAlertDialogBuilder(this)
+            .setItems(targets, (dialogInterface, which) -> {
+                int selectedFlags = flags[which];
+                if (!applyManagedWallpaper(croppedUri, selectedFlags)) {
+                    showToast(getString(R.string.error_wallpaper_set_failed), true);
+                    return;
+                }
+
+                if ((selectedFlags & WallpaperManager.FLAG_SYSTEM) != 0) {
+                    setWallpaperModeEnabled(this, true);
+                    View rootView = findViewById(R.id.activity_termux_root_view);
+                    if (rootView != null) {
+                        rootView.post(this::applyWallpaperOffsetFixIfNeeded);
+                    }
+                    scheduleAccessoryRenderSync("wallpaper-crop-applied");
+                }
+            })
+            .show();
+    }
+
+    private boolean applyManagedWallpaper(@NonNull Uri croppedUri, int wallpaperFlags) {
         try (InputStream inputStream = openWallpaperInputStream(croppedUri)) {
             if (inputStream == null) {
                 return false;
             }
-            WallpaperManager.getInstance(this).setStream(inputStream, null, true, WallpaperManager.FLAG_SYSTEM);
-            promoteManagedWallpaperTempFile();
-            int wallpaperId = getCurrentSystemWallpaperId();
-            if (mPreferences != null) {
-                mPreferences.setManagedWallpaperSystemId(wallpaperId);
+            WallpaperManager.getInstance(this).setStream(inputStream, null, true, wallpaperFlags);
+            if ((wallpaperFlags & WallpaperManager.FLAG_SYSTEM) != 0) {
+                promoteManagedWallpaperTempFile();
+                int wallpaperId = getCurrentSystemWallpaperId();
+                if (mPreferences != null) {
+                    mPreferences.setManagedWallpaperSystemId(wallpaperId);
+                }
             }
             return true;
         } catch (Exception e) {
