@@ -747,13 +747,24 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) layoutParams;
         int targetTop = 0;
+        int targetWidth = ViewGroup.LayoutParams.MATCH_PARENT;
         int targetHeight = ViewGroup.LayoutParams.MATCH_PARENT;
+        ViewParent parent = view.getParent();
+        if (parent instanceof View) {
+            View parentView = (View) parent;
+            if (parentView.getWidth() > 0) {
+                targetWidth = parentView.getWidth();
+            }
+            if (parentView.getHeight() > 0) {
+                targetHeight = parentView.getHeight();
+            }
+        }
         if (params.leftMargin != 0 || params.topMargin != targetTop ||
-            params.rightMargin != 0 || params.width != ViewGroup.LayoutParams.MATCH_PARENT || params.height != targetHeight) {
+            params.rightMargin != 0 || params.width != targetWidth || params.height != targetHeight) {
             params.leftMargin = 0;
             params.topMargin = targetTop;
             params.rightMargin = 0;
-            params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            params.width = targetWidth;
             params.height = targetHeight;
             view.setLayoutParams(params);
         }
