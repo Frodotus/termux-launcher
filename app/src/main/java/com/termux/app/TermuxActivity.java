@@ -864,8 +864,48 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return getManagedWallpaperExactFile().isFile();
     }
 
+    private int computeAccessoryBackdropOverscanPx(int blurRadiusDp) {
+        float blurRadiusPx = ViewUtils.dpToPx(this, Math.max(0, blurRadiusDp));
+        float density = getResources().getDisplayMetrics().density;
+        return Math.max(0, Math.round((blurRadiusPx * 2f) + (density * 2f)));
+    }
+
+    private void applyAccessoryBackdropOverscan(@NonNull ImageView backdrop, @NonNull View surfaceHost, int overscanPx) {
+        ViewGroup.LayoutParams layoutParams = backdrop.getLayoutParams();
+        if (!(layoutParams instanceof FrameLayout.LayoutParams)) {
+            return;
+        }
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) layoutParams;
+        int targetWidth = Math.max(1, surfaceHost.getWidth() + (overscanPx * 2));
+        int targetHeight = Math.max(1, surfaceHost.getHeight() + (overscanPx * 2));
+        int targetLeftMargin = -overscanPx;
+        int targetTopMargin = -overscanPx;
+        if (params.width != targetWidth || params.height != targetHeight ||
+            params.leftMargin != targetLeftMargin || params.topMargin != targetTopMargin) {
+            params.width = targetWidth;
+            params.height = targetHeight;
+            params.leftMargin = targetLeftMargin;
+            params.topMargin = targetTopMargin;
+            params.rightMargin = 0;
+            params.bottomMargin = 0;
+            params.gravity = Gravity.TOP | Gravity.START;
+            backdrop.setLayoutParams(params);
+        }
+    }
+
+    @NonNull
+    private Rect buildAccessoryBackdropTargetRect(@NonNull View surfaceHost, int overscanPx) {
+        surfaceHost.getLocationOnScreen(mTmpViewLocation);
+        return new Rect(
+            mTmpViewLocation[0] - overscanPx,
+            mTmpViewLocation[1] - overscanPx,
+            mTmpViewLocation[0] + Math.max(1, surfaceHost.getWidth()) + overscanPx,
+            mTmpViewLocation[1] + Math.max(1, surfaceHost.getHeight()) + overscanPx
+        );
+    }
+
     @Nullable
-    private Bitmap createManagedWallpaperBackdropBitmapForView(@NonNull View target, @NonNull View wallpaperFrame) {
+    private Bitmap createManagedWallpaperBackdropBitmapForRect(@NonNull Rect targetRect, @NonNull View wallpaperFrame) {
         File sourceFile = getManagedWallpaperExactFile();
         Bitmap sourceBitmap = BitmapFactory.decodeFile(sourceFile.getAbsolutePath());
         if (sourceBitmap == null) {
@@ -874,18 +914,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         try {
             Rect frameRect = getVisibleWallpaperFrameRect(wallpaperFrame);
-            Rect targetRect = new Rect();
-            int targetWidth = Math.max(1, target.getWidth());
-            int targetHeight = Math.max(1, target.getHeight());
-            if (!target.getGlobalVisibleRect(targetRect) || targetRect.width() <= 0 || targetRect.height() <= 0) {
-                target.getLocationOnScreen(mTmpViewLocation);
-                targetRect.set(
-                    mTmpViewLocation[0],
-                    mTmpViewLocation[1],
-                    mTmpViewLocation[0] + targetWidth,
-                    mTmpViewLocation[1] + targetHeight
-                );
-            }
+            int targetWidth = Math.max(1, targetRect.width());
+            int targetHeight = Math.max(1, targetRect.height());
 
             Bitmap bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
@@ -904,9 +934,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     @Nullable
-    private Bitmap createWallpaperBackdropBitmapForView(@NonNull View target, @NonNull View wallpaperFrame) {
+    private Bitmap createWallpaperBackdropBitmapForRect(@NonNull Rect targetRect, @NonNull View wallpaperFrame) {
         if (shouldUseManagedWallpaperBlurSource()) {
-            Bitmap managedBackdrop = createManagedWallpaperBackdropBitmapForView(target, wallpaperFrame);
+            Bitmap managedBackdrop = createManagedWallpaperBackdropBitmapForRect(targetRect, wallpaperFrame);
             if (managedBackdrop != null) {
                 return managedBackdrop;
             }
@@ -918,8 +948,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return null;
         }
 
-        int targetWidth = Math.max(1, target.getWidth());
-        int targetHeight = Math.max(1, target.getHeight());
+        int targetWidth = Math.max(1, targetRect.width());
+        int targetHeight = Math.max(1, targetRect.height());
         int frameWidth = Math.max(1, wallpaperFrame.getWidth());
         int frameHeight = Math.max(1, wallpaperFrame.getHeight());
 
@@ -942,20 +972,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         int offsetLeft = frameScreenX + Math.round((frameWidth - drawWidth) / 2f);
         int offsetTop = frameScreenY + Math.round((frameHeight - drawHeight) / 2f);
 
-        target.getLocationOnScreen(mTmpViewLocation);
-        int targetScreenX = mTmpViewLocation[0];
-        int targetScreenY = mTmpViewLocation[1];
-
         Bitmap bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         Drawable drawable = wallpaper.getConstantState() != null
             ? wallpaper.getConstantState().newDrawable().mutate()
             : wallpaper.mutate();
         drawable.setBounds(
-            offsetLeft - targetScreenX,
-            offsetTop - targetScreenY,
-            offsetLeft - targetScreenX + drawWidth,
-            offsetTop - targetScreenY + drawHeight
+            offsetLeft - targetRect.left,
+            offsetTop - targetRect.top,
+            offsetLeft - targetRect.left + drawWidth,
+            offsetTop - targetRect.top + drawHeight
         );
         drawable.draw(canvas);
         return bitmap;
@@ -979,7 +1005,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
 
-        Bitmap wallpaperBackdrop = createWallpaperBackdropBitmapForView(surfaceHost, wallpaperFrame);
+        int overscanPx = computeAccessoryBackdropOverscanPx(state.blurRadiusDp);
+        applyAccessoryBackdropOverscan(backdrop, surfaceHost, overscanPx);
+        Rect backdropTargetRect = buildAccessoryBackdropTargetRect(surfaceHost, overscanPx);
+        Bitmap wallpaperBackdrop = createWallpaperBackdropBitmapForRect(backdropTargetRect, wallpaperFrame);
         if (wallpaperBackdrop == null) {
             clearAccessoryRenderEffectBackdrop();
             return;
