@@ -2382,7 +2382,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private int getDockBaseToolbarHeightPx() {
         if (mTerminalToolbarDefaultHeight > 0) {
-            return mTerminalToolbarDefaultHeight;
+            return Math.round(mTerminalToolbarDefaultHeight);
         }
         return Math.round(getResources().getDisplayMetrics().density * 37.5f);
     }
