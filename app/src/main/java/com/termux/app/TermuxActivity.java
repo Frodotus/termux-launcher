@@ -102,7 +102,6 @@ import com.termux.shared.theme.ThemeUtils;
 import com.termux.shared.view.ViewUtils;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
-import com.termux.view.TerminalRenderer;
 import com.termux.view.TerminalView;
 import com.termux.view.TerminalViewClient;
 import androidx.annotation.NonNull;
@@ -190,7 +189,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     ExtraKeysView mExtraKeysView2;
 
     SuggestionBarView mSuggestionBarView;
-    @Nullable private ImageView mSuggestionBarFreezeOverlay;
     private boolean mSuggestionBarExplicitSearchActive;
     AzScrubRowView mAzScrubRowView;
     LauncherAzGestureFxView mLauncherAzGestureFxUnderlayView;
@@ -371,10 +369,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private final int[] mTmpParentLocation = new int[2];
     private final int[] mTmpViewLocation = new int[2];
     private long mLastAccessoryRenderSyncUptimeMs;
-    @Nullable private Runnable mPendingAccessoryGridSnapRunnable;
-    @Nullable private Runnable mPendingSuggestionBarFreezeReleaseRunnable;
-    @Nullable private Runnable mPendingAccessorySettleSyncRunnable;
-    private int mSuggestionBarFreezeGeneration;
     private final Handler mAccessoryRenderHandler = new Handler(Looper.getMainLooper());
     private final Runnable mAccessoryRenderSyncRunnable = () -> {
         mAccessoryRenderSyncPending = false;
@@ -479,11 +473,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mLauncherTransitionController.maybeHandleGestureContract(intent, mSuggestionBarView);
         }
         if (isLauncherHomeIntent(intent)) {
-            beginSuggestionBarTransitionFreeze();
+            if (mSuggestionBarView != null) {
+                mSuggestionBarView.resetTransientVisualState();
+            }
             updateAppLauncherBarHeight();
             setTerminalToolbarHeight();
             scheduleAccessoryRenderSync("onNewIntent:home");
-            scheduleAccessorySettleSync("onNewIntent:home", 120L);
         }
     }
 
@@ -521,14 +516,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyTerminalSurfaceAppearance();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
         if (mSuggestionBarView != null) {
-            beginSuggestionBarTransitionFreeze();
             mSuggestionBarView.resetTransientVisualState();
         }
         updateAppLauncherBarHeight();
         setTerminalToolbarHeight();
         configureExtraKeysBackground();
         scheduleAccessoryRenderSync("onStart");
-        scheduleAccessorySettleSync("onStart", 96L);
     
         registerTermuxActivityBroadcastReceiver();
         registerPackageChangeReceiver();
@@ -560,14 +553,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyWallpaperOffsetFixIfNeeded();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
         if (mSuggestionBarView != null) {
-            beginSuggestionBarTransitionFreeze();
             mSuggestionBarView.resetTransientVisualState();
         }
         updateAppLauncherBarHeight();
         setTerminalToolbarHeight();
         configureExtraKeysBackground();
         scheduleAccessoryRenderSync("onResume");
-        scheduleAccessorySettleSync("onResume", 96L);
         if (mSuggestionBarView != null) {
             mSuggestionBarView.post(this::updateAzOverflowAffordance);
         }
@@ -1303,11 +1294,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mAccessoryRenderHandler.removeCallbacks(mAccessoryRenderSyncRunnable);
         mAccessoryRenderSyncPending = false;
         mPendingAccessoryRenderReason = null;
-        if (mPendingAccessorySettleSyncRunnable != null) {
-            mAccessoryRenderHandler.removeCallbacks(mPendingAccessorySettleSyncRunnable);
-            mPendingAccessorySettleSyncRunnable = null;
-        }
-        cancelSuggestionBarTransitionFreeze();
         clearAccessoryRenderEffectBackdrop();
         mAzGestureHandler.removeCallbacks(mPackageRefreshRunnable);
         getDrawer().closeDrawers();
@@ -1516,13 +1502,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             );
             appsBarContainer.addView(mSuggestionBarView, params);
         }
-        ensureSuggestionBarFreezeOverlay(appsBarContainer);
-        if (mSuggestionBarFreezeOverlay != null && mSuggestionBarFreezeOverlay.getParent() != appsBarContainer) {
-            appsBarContainer.addView(mSuggestionBarFreezeOverlay, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            ));
-        }
 
         mSuggestionBarView.setAppDataProvider(mLauncherAppDataProvider);
         mSuggestionBarView.setConfigRepository(mLauncherConfigRepository);
@@ -1554,20 +1533,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
 
-    private void ensureSuggestionBarFreezeOverlay(@NonNull FrameLayout appsBarContainer) {
-        if (mSuggestionBarFreezeOverlay == null) {
-            mSuggestionBarFreezeOverlay = new ImageView(this);
-            mSuggestionBarFreezeOverlay.setScaleType(ImageView.ScaleType.FIT_XY);
-            mSuggestionBarFreezeOverlay.setVisibility(View.GONE);
-            mSuggestionBarFreezeOverlay.setClickable(false);
-            mSuggestionBarFreezeOverlay.setFocusable(false);
-            mSuggestionBarFreezeOverlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        } else if (mSuggestionBarFreezeOverlay.getParent() instanceof ViewGroup
-            && mSuggestionBarFreezeOverlay.getParent() != appsBarContainer) {
-            ((ViewGroup) mSuggestionBarFreezeOverlay.getParent()).removeView(mSuggestionBarFreezeOverlay);
-        }
-    }
-
     private boolean isLauncherHomeIntent(@Nullable Intent intent) {
         if (intent == null || !Intent.ACTION_MAIN.equals(intent.getAction())) {
             return false;
@@ -1577,102 +1542,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return false;
         }
         return categories.contains(Intent.CATEGORY_HOME) || categories.contains(Intent.CATEGORY_LAUNCHER);
-    }
-
-    private void scheduleAccessorySettleSync(@NonNull String reason, long delayMs) {
-        if (mPendingAccessorySettleSyncRunnable != null) {
-            mAccessoryRenderHandler.removeCallbacks(mPendingAccessorySettleSyncRunnable);
-        }
-        mPendingAccessorySettleSyncRunnable = () -> {
-            mPendingAccessorySettleSyncRunnable = null;
-            updateAppLauncherBarHeight();
-            setTerminalToolbarHeight();
-            scheduleAccessoryRenderSync(reason + ":settled");
-        };
-        mAccessoryRenderHandler.postDelayed(mPendingAccessorySettleSyncRunnable, Math.max(0L, delayMs));
-    }
-
-    private void beginSuggestionBarTransitionFreeze() {
-        if (mSuggestionBarView == null) {
-            return;
-        }
-        FrameLayout appsBarContainer = findViewById(R.id.apps_bar_viewpager);
-        if (appsBarContainer == null) {
-            mSuggestionBarView.prepareForWindowReentry();
-            return;
-        }
-        ensureSuggestionBarFreezeOverlay(appsBarContainer);
-        boolean snapshotCaptured = false;
-        if (mSuggestionBarFreezeOverlay != null
-            && mSuggestionBarView.getWidth() > 0
-            && mSuggestionBarView.getHeight() > 0
-            && mSuggestionBarView.hasStableDisplayLayout()) {
-            Bitmap snapshot = Bitmap.createBitmap(
-                mSuggestionBarView.getWidth(),
-                mSuggestionBarView.getHeight(),
-                Bitmap.Config.ARGB_8888
-            );
-            Canvas canvas = new Canvas(snapshot);
-            mSuggestionBarView.draw(canvas);
-            mSuggestionBarFreezeOverlay.setImageBitmap(snapshot);
-            mSuggestionBarFreezeOverlay.setVisibility(View.VISIBLE);
-            snapshotCaptured = true;
-        }
-        mSuggestionBarView.prepareForWindowReentry();
-        if (snapshotCaptured) {
-            mSuggestionBarView.setVisibility(View.INVISIBLE);
-        }
-        scheduleSuggestionBarTransitionFreezeRelease();
-    }
-
-    private void scheduleSuggestionBarTransitionFreezeRelease() {
-        if (mPendingSuggestionBarFreezeReleaseRunnable != null) {
-            mAccessoryRenderHandler.removeCallbacks(mPendingSuggestionBarFreezeReleaseRunnable);
-        }
-        final int generation = ++mSuggestionBarFreezeGeneration;
-        mPendingSuggestionBarFreezeReleaseRunnable = new Runnable() {
-            private int attempts;
-
-            @Override
-            public void run() {
-                if (generation != mSuggestionBarFreezeGeneration) {
-                    return;
-                }
-                if (mSuggestionBarView == null) {
-                    cancelSuggestionBarTransitionFreeze();
-                    return;
-                }
-                if (!mSuggestionBarView.hasStableDisplayLayout() && attempts < 20) {
-                    attempts++;
-                    mAccessoryRenderHandler.postDelayed(this, 16L);
-                    return;
-                }
-                if (mSuggestionBarView != null) {
-                    mSuggestionBarView.setVisibility(View.VISIBLE);
-                }
-                if (mSuggestionBarFreezeOverlay != null) {
-                    mSuggestionBarFreezeOverlay.setImageDrawable(null);
-                    mSuggestionBarFreezeOverlay.setVisibility(View.GONE);
-                }
-                mPendingSuggestionBarFreezeReleaseRunnable = null;
-            }
-        };
-        mAccessoryRenderHandler.postDelayed(mPendingSuggestionBarFreezeReleaseRunnable, 32L);
-    }
-
-    private void cancelSuggestionBarTransitionFreeze() {
-        mSuggestionBarFreezeGeneration++;
-        if (mPendingSuggestionBarFreezeReleaseRunnable != null) {
-            mAccessoryRenderHandler.removeCallbacks(mPendingSuggestionBarFreezeReleaseRunnable);
-            mPendingSuggestionBarFreezeReleaseRunnable = null;
-        }
-        if (mSuggestionBarView != null) {
-            mSuggestionBarView.setVisibility(View.VISIBLE);
-        }
-        if (mSuggestionBarFreezeOverlay != null) {
-            mSuggestionBarFreezeOverlay.setImageDrawable(null);
-            mSuggestionBarFreezeOverlay.setVisibility(View.GONE);
-        }
     }
 
     private char getSuggestionBarSplitChar() {
@@ -2427,76 +2296,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyDockLayoutMetrics(dockMetrics);
         int combinedHeight = dockMetrics.combinedHeight(toolbarHeightPx);
         updateAccessoryStackContainerHeight(accessoryStackContainer, combinedHeight);
-        scheduleAccessoryHeightSnapToTerminalGrid(accessoryStackContainer, toolbarHeightPx, dockMetrics);
+        if (mTerminalView != null) {
+            mTerminalView.post(mTerminalView::updateSize);
+        }
         scheduleAccessoryRenderSync("setTerminalToolbarHeight");
-    }
-
-    private void scheduleAccessoryHeightSnapToTerminalGrid(@NonNull View accessoryStackContainer, int toolbarHeightPx, @NonNull DockLayoutMetrics baseDockMetrics) {
-        if (mPendingAccessoryGridSnapRunnable != null) {
-            mAccessoryRenderHandler.removeCallbacks(mPendingAccessoryGridSnapRunnable);
-        }
-        mPendingAccessoryGridSnapRunnable = new Runnable() {
-            private int attempts;
-
-            @Override
-            public void run() {
-                if (mTerminalView == null) {
-                    mPendingAccessoryGridSnapRunnable = null;
-                    return;
-                }
-                TerminalRenderer renderer = mTerminalView.mRenderer;
-                RelativeLayout rootLayout = findViewById(R.id.activity_termux_root_relative_layout);
-                boolean layoutReady = renderer != null
-                    && mTerminalView.getHeight() > 0
-                    && accessoryStackContainer.getHeight() > 0
-                    && rootLayout != null
-                    && rootLayout.getHeight() > 0;
-                if (!layoutReady && attempts < 8) {
-                    attempts++;
-                    mAccessoryRenderHandler.postDelayed(this, 16L);
-                    return;
-                }
-
-                int snapExtraPx = computeAccessoryGridSnapExtraPx();
-                int maxCombinedHeightPx = rootLayout != null ? Math.max(0, rootLayout.getHeight()) : Integer.MAX_VALUE;
-                int maxAdditionalPx = Math.max(0, maxCombinedHeightPx - baseDockMetrics.combinedHeight(toolbarHeightPx));
-                if (snapExtraPx > maxAdditionalPx) {
-                    snapExtraPx = maxAdditionalPx;
-                }
-
-                DockLayoutMetrics snappedDockMetrics = buildDockLayoutMetrics(snapExtraPx);
-                applyDockLayoutMetrics(snappedDockMetrics);
-                int alignedHeightPx = snappedDockMetrics.combinedHeight(toolbarHeightPx);
-                if (alignedHeightPx != accessoryStackContainer.getHeight()) {
-                    updateAccessoryStackContainerHeight(accessoryStackContainer, alignedHeightPx);
-                }
-                if (mTerminalView != null) {
-                    mTerminalView.post(mTerminalView::updateSize);
-                }
-                mPendingAccessoryGridSnapRunnable = null;
-            }
-        };
-        accessoryStackContainer.post(mPendingAccessoryGridSnapRunnable);
-    }
-
-    private int computeAccessoryGridSnapExtraPx() {
-        if (mTerminalView == null) {
-            return 0;
-        }
-        TerminalRenderer renderer = mTerminalView.mRenderer;
-        if (renderer == null) {
-            return 0;
-        }
-        int terminalHeightPx = mTerminalView.getHeight();
-        int lineSpacingPx = renderer.getFontLineSpacing();
-        int lineStartOffsetPx = renderer.getFontLineSpacingAndAscent();
-        if (lineSpacingPx <= 0 || terminalHeightPx <= lineStartOffsetPx) {
-            return 0;
-        }
-        int rows = Math.max(4, (terminalHeightPx - lineStartOffsetPx) / lineSpacingPx);
-        int renderedTerminalHeightPx = lineStartOffsetPx + (rows * lineSpacingPx);
-        int unusedTerminalPx = Math.max(0, terminalHeightPx - renderedTerminalHeightPx);
-        return unusedTerminalPx;
     }
 
     private void updateAccessoryStackContainerHeight(View view, int height) {
@@ -3550,9 +3353,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mSuggestionBarView.clearAzPreview();
             }
         }
-        beginSuggestionBarTransitionFreeze();
+        if (mSuggestionBarView != null) {
+            mSuggestionBarView.resetTransientVisualState();
+        }
         scheduleAccessoryRenderSync(visible ? "ime:open" : "ime:close");
-        scheduleAccessorySettleSync(visible ? "ime:open" : "ime:close", visible ? 64L : 132L);
     }
 
     private void scheduleAccessoryRenderSync(@NonNull String reason) {
@@ -3700,7 +3504,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setMargins();
         updateAppLauncherBarHeight();
         applySuggestionBarPreferences();
-        beginSuggestionBarTransitionFreeze();
+        if (mSuggestionBarView != null) {
+            mSuggestionBarView.resetTransientVisualState();
+        }
         applySuggestionBarInputChar();
         setTerminalToolbarHeight();
         applySeamlessStatusBackgroundModeIfNeeded();
@@ -3713,7 +3519,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalSessionActivityClient.onReloadActivityStyling();
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onReloadActivityStyling();
-        scheduleAccessorySettleSync("reloadActivityStyling", 96L);
         // To change the activity and drawer theme, activity needs to be recreated.
         // It will destroy the activity, including all stored variables and views, and onCreate()
         // will be called again. Extra keys input text, terminal sessions and transcripts will be preserved.
