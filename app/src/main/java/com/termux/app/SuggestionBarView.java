@@ -18,6 +18,7 @@ import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
 import android.content.pm.ShortcutInfo;
 import android.net.Uri;
+import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Point;
@@ -151,6 +152,8 @@ public final class SuggestionBarView extends GridLayout {
     private VelocityTracker swipeVelocityTracker;
     private boolean pageSwitchAnimating = false;
     private boolean pendingDeferredRender = false;
+    private boolean suppressDrawUntilStableLayout = true;
+    private boolean stableLayoutRerenderPosted = false;
     private boolean suppressContextLongPressForSwipe = false;
     private int folderDragHoverIndex = -1;
     @Nullable private LongPressPickupState activeLongPressPickupState;
@@ -245,6 +248,7 @@ public final class SuggestionBarView extends GridLayout {
         super.onAttachedToWindow();
         setClipChildren(false);
         setClipToPadding(false);
+        prepareForWindowReentry();
         resetTransientVisualState();
         ViewParent parent = getParent();
         if (parent instanceof ViewGroup) {
@@ -264,8 +268,23 @@ public final class SuggestionBarView extends GridLayout {
     protected void onWindowVisibilityChanged(int visibility) {
         super.onWindowVisibilityChanged(visibility);
         if (visibility == VISIBLE) {
+            prepareForWindowReentry();
             resetTransientVisualState();
         }
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        if (suppressDrawUntilStableLayout) {
+            return;
+        }
+        super.dispatchDraw(canvas);
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        scheduleStableDrawReleaseIfPossible();
     }
 
     public void setMaxButtonCount(int maxButtonCount) {
@@ -299,6 +318,13 @@ public final class SuggestionBarView extends GridLayout {
     public void setBlurConfig(boolean blurEnabled, int blurRadiusDp) {
         this.blurEnabled = blurEnabled;
         this.blurRadiusDp = Math.max(0, blurRadiusDp);
+    }
+
+    public void prepareForWindowReentry() {
+        suppressDrawUntilStableLayout = true;
+        stableLayoutRerenderPosted = false;
+        invalidate();
+        scheduleStableDrawReleaseIfPossible();
     }
 
     public void setInheritedTintColor(int inheritedTintColor) {
@@ -1089,9 +1115,8 @@ public final class SuggestionBarView extends GridLayout {
     }
 
     private void renderButtons(@NonNull List<LauncherAppEntry> entries, boolean azPreview) {
-        int minStableWidth = Math.max(1, dp(120));
-        int minStableHeight = Math.max(1, dp(24));
-        if (!isLaidOut() || getWidth() < minStableWidth || getHeight() < minStableHeight) {
+        if (!hasStableRenderBounds()) {
+            suppressDrawUntilStableLayout = true;
             if (pendingDeferredRender) {
                 return;
             }
@@ -1107,6 +1132,7 @@ public final class SuggestionBarView extends GridLayout {
             });
             return;
         }
+        suppressDrawUntilStableLayout = false;
         pendingDeferredRender = false;
         resetTransientVisualState();
         folderDragHoverIndex = -1;
@@ -4384,6 +4410,38 @@ public final class SuggestionBarView extends GridLayout {
                 pressTarget.setAlpha(1f);
             }
         }
+    }
+
+    private boolean hasStableRenderBounds() {
+        int minStableWidth = Math.max(1, dp(120));
+        int minStableHeight = Math.max(1, dp(24));
+        return isLaidOut() && getWidth() >= minStableWidth && getHeight() >= minStableHeight;
+    }
+
+    private void scheduleStableDrawReleaseIfPossible() {
+        if (!suppressDrawUntilStableLayout || stableLayoutRerenderPosted || !hasStableRenderBounds()) {
+            return;
+        }
+        stableLayoutRerenderPosted = true;
+        post(() -> {
+            stableLayoutRerenderPosted = false;
+            if (!isAttachedToWindow() || !hasStableRenderBounds()) {
+                return;
+            }
+            resetTransientVisualState();
+            suppressDrawUntilStableLayout = false;
+            rerenderCurrentSurface();
+            invalidate();
+        });
+    }
+
+    private void rerenderCurrentSurface() {
+        if (activeAzLetter != null) {
+            renderButtons(activeAzCandidates, true);
+            captureAzRenderState(activeAzLetter, activeAzPageIndex, Math.max(1, maxButtonCount), activeAzCandidates);
+            return;
+        }
+        reloadWithInput(lastInput, lastTerminalView);
     }
 
     private static float lerp(float start, float end, float t) {

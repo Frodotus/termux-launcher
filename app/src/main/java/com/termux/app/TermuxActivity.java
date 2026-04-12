@@ -102,6 +102,7 @@ import com.termux.shared.theme.ThemeUtils;
 import com.termux.shared.view.ViewUtils;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
+import com.termux.view.TerminalRenderer;
 import com.termux.view.TerminalView;
 import com.termux.view.TerminalViewClient;
 import androidx.annotation.NonNull;
@@ -368,6 +369,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private final int[] mTmpParentLocation = new int[2];
     private final int[] mTmpViewLocation = new int[2];
     private long mLastAccessoryRenderSyncUptimeMs;
+    @Nullable private Runnable mPendingAccessoryGridSnapRunnable;
     private final Handler mAccessoryRenderHandler = new Handler(Looper.getMainLooper());
     private final Runnable mAccessoryRenderSyncRunnable = () -> {
         mAccessoryRenderSyncPending = false;
@@ -506,6 +508,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applySeamlessStatusBackgroundModeIfNeeded();
         applyTerminalSurfaceAppearance();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
+        if (mSuggestionBarView != null) {
+            mSuggestionBarView.prepareForWindowReentry();
+            mSuggestionBarView.resetTransientVisualState();
+        }
         updateAppLauncherBarHeight();
         setTerminalToolbarHeight();
         configureExtraKeysBackground();
@@ -540,12 +546,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyTerminalSurfaceAppearance();
         applyWallpaperOffsetFixIfNeeded();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
+        if (mSuggestionBarView != null) {
+            mSuggestionBarView.prepareForWindowReentry();
+            mSuggestionBarView.resetTransientVisualState();
+        }
         updateAppLauncherBarHeight();
         setTerminalToolbarHeight();
         configureExtraKeysBackground();
-        if (mSuggestionBarView != null) {
-            mSuggestionBarView.resetTransientVisualState();
-        }
         scheduleAccessoryRenderSync("onResume");
         if (mSuggestionBarView != null) {
             mSuggestionBarView.post(this::updateAzOverflowAffordance);
@@ -2308,7 +2315,76 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             appsBarGapPx
         );
         updateAccessoryStackContainerHeight(accessoryStackContainer, combinedHeight);
+        scheduleAccessoryHeightSnapToTerminalGrid(accessoryStackContainer, combinedHeight);
         scheduleAccessoryRenderSync("setTerminalToolbarHeight");
+    }
+
+    private void scheduleAccessoryHeightSnapToTerminalGrid(@NonNull View accessoryStackContainer, int requestedHeightPx) {
+        if (mPendingAccessoryGridSnapRunnable != null) {
+            mAccessoryRenderHandler.removeCallbacks(mPendingAccessoryGridSnapRunnable);
+        }
+        final int baseHeightPx = Math.max(0, requestedHeightPx);
+        mPendingAccessoryGridSnapRunnable = new Runnable() {
+            private int attempts;
+
+            @Override
+            public void run() {
+                if (mTerminalView == null) {
+                    mPendingAccessoryGridSnapRunnable = null;
+                    return;
+                }
+                TerminalRenderer renderer = mTerminalView.mRenderer;
+                RelativeLayout rootLayout = findViewById(R.id.activity_termux_root_relative_layout);
+                boolean layoutReady = renderer != null
+                    && mTerminalView.getHeight() > 0
+                    && accessoryStackContainer.getHeight() > 0
+                    && rootLayout != null
+                    && rootLayout.getHeight() > 0;
+                if (!layoutReady && attempts < 8) {
+                    attempts++;
+                    mAccessoryRenderHandler.postDelayed(this, 16L);
+                    return;
+                }
+
+                int currentHeightPx = accessoryStackContainer.getHeight() > 0
+                    ? accessoryStackContainer.getHeight()
+                    : baseHeightPx;
+                int alignedHeightPx = computeAccessoryHeightAlignedToTerminalGrid(currentHeightPx);
+                if (alignedHeightPx != currentHeightPx) {
+                    updateAccessoryStackContainerHeight(accessoryStackContainer, alignedHeightPx);
+                }
+                if (mTerminalView != null) {
+                    mTerminalView.post(mTerminalView::updateSize);
+                }
+                mPendingAccessoryGridSnapRunnable = null;
+            }
+        };
+        accessoryStackContainer.post(mPendingAccessoryGridSnapRunnable);
+    }
+
+    private int computeAccessoryHeightAlignedToTerminalGrid(int currentAccessoryHeightPx) {
+        if (mTerminalView == null) {
+            return currentAccessoryHeightPx;
+        }
+        TerminalRenderer renderer = mTerminalView.mRenderer;
+        if (renderer == null) {
+            return currentAccessoryHeightPx;
+        }
+        int terminalHeightPx = mTerminalView.getHeight();
+        int lineSpacingPx = renderer.getFontLineSpacing();
+        int lineStartOffsetPx = renderer.getFontLineSpacingAndAscent();
+        if (lineSpacingPx <= 0 || terminalHeightPx <= lineStartOffsetPx) {
+            return currentAccessoryHeightPx;
+        }
+        int rows = Math.max(4, (terminalHeightPx - lineStartOffsetPx) / lineSpacingPx);
+        int renderedTerminalHeightPx = lineStartOffsetPx + (rows * lineSpacingPx);
+        int unusedTerminalPx = Math.max(0, terminalHeightPx - renderedTerminalHeightPx);
+        if (unusedTerminalPx == 0) {
+            return currentAccessoryHeightPx;
+        }
+        RelativeLayout rootLayout = findViewById(R.id.activity_termux_root_relative_layout);
+        int maxAccessoryHeightPx = rootLayout != null ? Math.max(0, rootLayout.getHeight()) : Integer.MAX_VALUE;
+        return Math.max(0, Math.min(maxAccessoryHeightPx, currentAccessoryHeightPx + unusedTerminalPx));
     }
 
     private void updateAccessoryStackContainerHeight(View view, int height) {
