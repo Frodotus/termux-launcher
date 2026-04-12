@@ -875,22 +875,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return getManagedWallpaperExactFile().isFile();
     }
 
-    private int computeAccessoryBackdropOverscanPx(int blurRadiusDp) {
+    private int computeAccessoryBackdropHorizontalOverscanPx(int blurRadiusDp) {
         float blurRadiusPx = ViewUtils.dpToPx(this, Math.max(0, blurRadiusDp));
         float density = getResources().getDisplayMetrics().density;
         return Math.max(0, Math.round((blurRadiusPx * 2f) + (density * 2f)));
     }
 
-    private void applyAccessoryBackdropOverscan(@NonNull ImageView backdrop, @NonNull View surfaceHost, int overscanPx) {
+    private void applyAccessoryBackdropOverscan(@NonNull ImageView backdrop, @NonNull View surfaceHost, int horizontalOverscanPx) {
         ViewGroup.LayoutParams layoutParams = backdrop.getLayoutParams();
         if (!(layoutParams instanceof FrameLayout.LayoutParams)) {
             return;
         }
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) layoutParams;
-        int targetWidth = Math.max(1, surfaceHost.getWidth() + (overscanPx * 2));
-        int targetHeight = Math.max(1, surfaceHost.getHeight() + (overscanPx * 2));
-        int targetLeftMargin = -overscanPx;
-        int targetTopMargin = -overscanPx;
+        int targetWidth = Math.max(1, surfaceHost.getWidth() + (horizontalOverscanPx * 2));
+        int targetHeight = Math.max(1, surfaceHost.getHeight());
+        int targetLeftMargin = -horizontalOverscanPx;
+        int targetTopMargin = 0;
         if (params.width != targetWidth || params.height != targetHeight ||
             params.leftMargin != targetLeftMargin || params.topMargin != targetTopMargin) {
             params.width = targetWidth;
@@ -905,13 +905,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     @NonNull
-    private Rect buildAccessoryBackdropTargetRect(@NonNull View surfaceHost, int overscanPx) {
+    private Rect buildAccessoryBackdropTargetRect(@NonNull View surfaceHost, int horizontalOverscanPx) {
         surfaceHost.getLocationOnScreen(mTmpViewLocation);
         return new Rect(
-            mTmpViewLocation[0] - overscanPx,
-            mTmpViewLocation[1] - overscanPx,
-            mTmpViewLocation[0] + Math.max(1, surfaceHost.getWidth()) + overscanPx,
-            mTmpViewLocation[1] + Math.max(1, surfaceHost.getHeight()) + overscanPx
+            mTmpViewLocation[0] - horizontalOverscanPx,
+            mTmpViewLocation[1],
+            mTmpViewLocation[0] + Math.max(1, surfaceHost.getWidth()) + horizontalOverscanPx,
+            mTmpViewLocation[1] + Math.max(1, surfaceHost.getHeight())
         );
     }
 
@@ -1016,9 +1016,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
 
-        int overscanPx = computeAccessoryBackdropOverscanPx(state.blurRadiusDp);
-        applyAccessoryBackdropOverscan(backdrop, surfaceHost, overscanPx);
-        Rect backdropTargetRect = buildAccessoryBackdropTargetRect(surfaceHost, overscanPx);
+        int horizontalOverscanPx = computeAccessoryBackdropHorizontalOverscanPx(state.blurRadiusDp);
+        applyAccessoryBackdropOverscan(backdrop, surfaceHost, horizontalOverscanPx);
+        Rect backdropTargetRect = buildAccessoryBackdropTargetRect(surfaceHost, horizontalOverscanPx);
         Bitmap wallpaperBackdrop = createWallpaperBackdropBitmapForRect(backdropTargetRect, wallpaperFrame);
         if (wallpaperBackdrop == null) {
             clearAccessoryRenderEffectBackdrop();
