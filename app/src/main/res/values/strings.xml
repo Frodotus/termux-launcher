@@ -306,10 +306,14 @@
                 <string name="termux_app_launcher_reset_usage_ranking_title">Reset App Order</string>
                 <string name="termux_app_launcher_reset_usage_ranking_summary">Apps are ordered based on how often you use them. Tap to reset this order.</string>
                 <string name="termux_app_launcher_bar_height_title">App icons bar height</string>
-                <string name="termux_app_launcher_bar_height_summary">Height multiplier for the app launcher bar (1.0 = default).</string>
+                <string name="termux_app_launcher_bar_height_summary">Choose how tall the app icons bar should feel.</string>
                 <string name="termux_app_launcher_icon_scale_title">Icon scaling</string>
-                <string name="termux_app_launcher_icon_scale_summary">Icon size multiplier (1.0 = default). Scales with bar height.</string>
+                <string name="termux_app_launcher_icon_scale_summary">Choose how large app icons should appear inside the dock.</string>
                 <string name="termux_app_launcher_icon_scale_auto">Auto</string>
+                <string name="termux_dock_preset_smallest">Smallest</string>
+                <string name="termux_dock_preset_small">Small</string>
+                <string name="termux_dock_preset_default">Default</string>
+                <string name="termux_dock_preset_large">Large</string>
                 <string name="termux_app_launcher_reset_usage_ranking_confirm_title">Reset ranking?</string>
                 <string name="termux_app_launcher_reset_usage_ranking_confirm_message">This will clear app usage ranking for A-Z launch suggestions.</string>
                 <string name="termux_app_launcher_reset_usage_ranking_done">Adaptive A-Z ranking reset</string>

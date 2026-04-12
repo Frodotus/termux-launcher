@@ -509,7 +509,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyTerminalSurfaceAppearance();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
         if (mSuggestionBarView != null) {
-            mSuggestionBarView.prepareForWindowReentry();
             mSuggestionBarView.resetTransientVisualState();
         }
         updateAppLauncherBarHeight();
@@ -521,7 +520,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         registerPackageChangeReceiver();
         registerLauncherAppsCallback();
         getWindow().getDecorView().post(() -> LauncherCtlApiServer.getInstance().ensureStartedAsync(getApplicationContext()));
-        scheduleSuggestionBarPackageRefresh(true, false);
+        scheduleSuggestionBarPackageRefresh(false, false);
     }
 
     @Override
@@ -547,7 +546,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyWallpaperOffsetFixIfNeeded();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
         if (mSuggestionBarView != null) {
-            mSuggestionBarView.prepareForWindowReentry();
             mSuggestionBarView.resetTransientVisualState();
         }
         updateAppLauncherBarHeight();
@@ -1430,7 +1428,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void setSuggestionBarView() {
-        final ViewPager viewPager = findViewById(R.id.apps_bar_viewpager);
+        final FrameLayout appsBarContainer = findViewById(R.id.apps_bar_viewpager);
         mAzScrubRowView = findViewById(R.id.apps_bar_az_row);
         mLauncherAzGestureFxUnderlayView = findViewById(R.id.apps_bar_az_fx_underlay);
         mLauncherAzGestureFxOverlayView = findViewById(R.id.apps_bar_az_fx_overlay);
@@ -1440,12 +1438,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mLauncherAzGestureFxOverlayView != null) {
             mLauncherAzGestureFxOverlayView.setRenderLayer(LauncherAzGestureFxView.RenderLayer.OVERLAY);
         }
-        if (viewPager == null) {
+        if (appsBarContainer == null) {
             return;
         }
-        viewPager.setClipChildren(false);
-        viewPager.setClipToPadding(false);
-        ViewParent vpParent = viewPager.getParent();
+        appsBarContainer.setClipChildren(false);
+        appsBarContainer.setClipToPadding(false);
+        ViewParent vpParent = appsBarContainer.getParent();
         if (vpParent instanceof ViewGroup) {
             ViewGroup parentGroup = (ViewGroup) vpParent;
             parentGroup.setClipChildren(false);
@@ -1462,51 +1460,34 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         // Set height based on preferences
-        ViewGroup.LayoutParams layoutParams = viewPager.getLayoutParams();
+        ViewGroup.LayoutParams layoutParams = appsBarContainer.getLayoutParams();
         float barHeightScale = mPreferences.getAppLauncherBarHeightScale();
         int defaultHeight = (int) (getResources().getDisplayMetrics().density * 37.5f);
         layoutParams.height = Math.round(defaultHeight * barHeightScale);
-        viewPager.setLayoutParams(layoutParams);
+        appsBarContainer.setLayoutParams(layoutParams);
 
-        final SuggestionBarCallback suggestionBarCallback = this;
-        viewPager.setAdapter(new androidx.viewpager.widget.PagerAdapter() {
-            @Override
-            public int getCount() {
-                return 1; // count of pages to scroll through
-            }
+        if (mSuggestionBarView == null) {
+            LayoutInflater inflater = LayoutInflater.from(TermuxActivity.this);
+            mSuggestionBarView = (SuggestionBarView) inflater.inflate(R.layout.suggestion_bar, appsBarContainer, false);
+        } else if (mSuggestionBarView.getParent() instanceof ViewGroup) {
+            ((ViewGroup) mSuggestionBarView.getParent()).removeView(mSuggestionBarView);
+        }
 
-            @Override
-            public boolean isViewFromObject(@NonNull View view, @NonNull Object object) {
-                return view == object;
-            }
+        if (mSuggestionBarView.getParent() != appsBarContainer) {
+            appsBarContainer.removeAllViews();
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            );
+            appsBarContainer.addView(mSuggestionBarView, params);
+        }
 
-            @NonNull
-            @Override
-            public Object instantiateItem(@NonNull ViewGroup collection, int position) {
-                LayoutInflater inflater = LayoutInflater.from(TermuxActivity.this);
-                mSuggestionBarView = (SuggestionBarView) inflater.inflate(R.layout.suggestion_bar, collection, false);
-                mSuggestionBarView.setAppDataProvider(mLauncherAppDataProvider);
-                mSuggestionBarView.setConfigRepository(mLauncherConfigRepository);
-                mSuggestionBarView.setAppCatalogChangedListener(TermuxActivity.this::syncAzScrubLettersAndTint);
-                applySuggestionBarPreferences();
-                mSuggestionBarView.reload();
-                mTermuxTerminalViewClient.setSuggestionBarCallback(suggestionBarCallback);
-                collection.addView(mSuggestionBarView);
-                return mSuggestionBarView;
-            }
-
-            @Override
-            public void destroyItem(@NonNull ViewGroup collection, int position, @NonNull Object view) {
-                collection.removeView((View) view);
-            }
-        });
-
-        viewPager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
-            @Override
-            public void onPageSelected(int position) {
-                mTerminalView.requestFocus();
-            }
-        });
+        mSuggestionBarView.setAppDataProvider(mLauncherAppDataProvider);
+        mSuggestionBarView.setConfigRepository(mLauncherConfigRepository);
+        mSuggestionBarView.setAppCatalogChangedListener(this::syncAzScrubLettersAndTint);
+        applySuggestionBarPreferences();
+        mSuggestionBarView.reload();
+        mTermuxTerminalViewClient.setSuggestionBarCallback(this);
 
         if (mAzScrubRowView != null) {
             mAzScrubRowView.setScrubCallback(new AzScrubRowView.ScrubCallback() {

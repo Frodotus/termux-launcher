@@ -268,8 +268,8 @@ public final class SuggestionBarView extends GridLayout {
     protected void onWindowVisibilityChanged(int visibility) {
         super.onWindowVisibilityChanged(visibility);
         if (visibility == VISIBLE) {
-            prepareForWindowReentry();
             resetTransientVisualState();
+            scheduleStableDrawReleaseIfPossible();
         }
     }
 
@@ -4598,7 +4598,32 @@ public final class SuggestionBarView extends GridLayout {
     }
 
     private int iconSizePx() {
-        return Math.max(dp(20), Math.round(24f * iconScale * getResources().getDisplayMetrics().density));
+        int availableHeight = getHeight();
+        if (availableHeight <= 0) {
+            ViewParent parent = getParent();
+            if (parent instanceof View) {
+                availableHeight = ((View) parent).getHeight();
+            }
+        }
+        if (availableHeight <= 0) {
+            return Math.max(dp(20), Math.round(24f * iconScale * getResources().getDisplayMetrics().density));
+        }
+        int usableHeight = Math.max(dp(24), availableHeight - dp(4));
+        int candidate = Math.round(usableHeight * resolveIconFillRatio());
+        return clamp(candidate, dp(20), usableHeight);
+    }
+
+    private float resolveIconFillRatio() {
+        if (iconScale <= 1.04f) {
+            return 0.52f;
+        }
+        if (iconScale <= 1.30f) {
+            return 0.60f;
+        }
+        if (iconScale <= 1.63f) {
+            return 0.68f;
+        }
+        return 0.76f;
     }
 
     @NonNull
