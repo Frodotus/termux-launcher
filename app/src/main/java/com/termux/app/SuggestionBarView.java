@@ -18,6 +18,7 @@ import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
 import android.content.pm.ShortcutInfo;
 import android.net.Uri;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.ColorMatrixColorFilter;
@@ -25,6 +26,7 @@ import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -124,6 +126,7 @@ public final class SuggestionBarView extends GridLayout {
     private int blurRadiusDp = 10;
     private int inheritedTintColor = 0;
     private int dockRowHeightHintPx = 0;
+    @Nullable private Drawable renderFreezeOverlayDrawable;
     private List<String> defaultButtonStrings = new ArrayList<>();
     private final Map<String, WeakReference<View>> launchTargetViews = new HashMap<>();
     private final Map<String, WeakReference<View>> launchTargetViewsByPackage = new HashMap<>();
@@ -276,7 +279,15 @@ public final class SuggestionBarView extends GridLayout {
             prepareForWindowReentry();
             resetTransientVisualState();
             scheduleStableDrawReleaseIfPossible();
+        } else {
+            clearRenderFreezeOverlay();
         }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        clearRenderFreezeOverlay();
+        super.onDetachedFromWindow();
     }
 
     @Override
@@ -339,6 +350,7 @@ public final class SuggestionBarView extends GridLayout {
     }
 
     public void prepareForWindowReentry() {
+        beginRenderFreezeOverlayIfPossible();
         suppressDrawUntilStableLayout = true;
         stableLayoutRerenderPosted = false;
         childLayoutPending = true;
@@ -417,6 +429,10 @@ public final class SuggestionBarView extends GridLayout {
         if (activeAzLetter != null) {
             previewAzLetter(activeAzLetter, activeAzSelection, false);
         }
+    }
+
+    public boolean isSearchSurfaceActive() {
+        return !TextUtils.isEmpty(lastInput.trim());
     }
 
     public void setDefaultButtons(List<String> defaultButtons) {
@@ -1152,6 +1168,7 @@ public final class SuggestionBarView extends GridLayout {
             });
             return;
         }
+        beginRenderFreezeOverlayIfPossible();
         suppressDrawUntilStableLayout = true;
         pendingDeferredRender = false;
         childLayoutPending = true;
@@ -4473,6 +4490,38 @@ public final class SuggestionBarView extends GridLayout {
         return meaningfulChildren <= 1 || foundDistinctSlot;
     }
 
+    public boolean hasStableDisplayLayout() {
+        return isAttachedToWindow()
+            && hasStableRenderBounds()
+            && hasStableChildLayout()
+            && !suppressDrawUntilStableLayout;
+    }
+
+    private void beginRenderFreezeOverlayIfPossible() {
+        if (suppressDrawUntilStableLayout || renderFreezeOverlayDrawable != null || !isAttachedToWindow() || getWidth() <= 0 || getHeight() <= 0) {
+            return;
+        }
+        if (getChildCount() == 0 && renderFreezeOverlayDrawable == null) {
+            return;
+        }
+        clearRenderFreezeOverlay();
+        Bitmap snapshot = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(snapshot);
+        draw(canvas);
+        BitmapDrawable drawable = new BitmapDrawable(getResources(), snapshot);
+        drawable.setBounds(0, 0, getWidth(), getHeight());
+        getOverlay().add(drawable);
+        renderFreezeOverlayDrawable = drawable;
+    }
+
+    private void clearRenderFreezeOverlay() {
+        if (renderFreezeOverlayDrawable == null) {
+            return;
+        }
+        getOverlay().remove(renderFreezeOverlayDrawable);
+        renderFreezeOverlayDrawable = null;
+    }
+
     private void scheduleStableDrawReleaseIfPossible() {
         if (!suppressDrawUntilStableLayout || stableLayoutRerenderPosted || !hasStableRenderBounds()) {
             return;
@@ -4492,6 +4541,7 @@ public final class SuggestionBarView extends GridLayout {
             resetTransientVisualState();
             suppressDrawUntilStableLayout = false;
             childLayoutPending = false;
+            clearRenderFreezeOverlay();
             invalidate();
         });
     }
@@ -4694,6 +4744,7 @@ public final class SuggestionBarView extends GridLayout {
     }
 
     public void releaseResources() {
+        clearRenderFreezeOverlay();
         removeCallbacks(azResetRunnable);
         removeCallbacks(azPostLaunchClearRunnable);
         clearAzFocusedEntry();

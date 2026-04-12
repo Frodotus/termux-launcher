@@ -305,8 +305,8 @@
                 <string name="termux_app_launcher_az_double_tap_lock_summary">double tap the alphabets row to lock screen, uses shizuku.</string>
                 <string name="termux_app_launcher_reset_usage_ranking_title">Reset App Order</string>
                 <string name="termux_app_launcher_reset_usage_ranking_summary">Apps are ordered based on how often you use them. Tap to reset this order.</string>
-                <string name="termux_app_launcher_bar_height_title">App icons bar height</string>
-                <string name="termux_app_launcher_bar_height_summary">Choose how tall the app icons bar should feel.</string>
+                <string name="termux_app_launcher_bar_height_title">Dock size</string>
+                <string name="termux_app_launcher_bar_height_summary">Choose the overall dock size.</string>
                 <string name="termux_app_launcher_icon_scale_title">Icon scaling</string>
                 <string name="termux_app_launcher_icon_scale_summary">Choose how large app icons should appear inside the dock.</string>
                 <string name="termux_app_launcher_icon_scale_auto">Auto</string>

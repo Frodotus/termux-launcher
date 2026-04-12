@@ -19,13 +19,4 @@
         android:defaultValue="2"
         app:showSeekBarValue="false" />
 
-    <androidx.preference.SeekBarPreference
-        app:key="app_launcher_icon_scale_percent"
-        app:title="@string/termux_app_launcher_icon_scale_title"
-        app:summary="@string/termux_app_launcher_icon_scale_summary"
-        app:min="0"
-        android:max="3"
-        android:defaultValue="2"
-        app:showSeekBarValue="false" />
-
 </PreferenceScreen>

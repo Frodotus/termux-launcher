@@ -190,6 +190,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     ExtraKeysView mExtraKeysView2;
 
     SuggestionBarView mSuggestionBarView;
+    @Nullable private ImageView mSuggestionBarFreezeOverlay;
+    private boolean mSuggestionBarExplicitSearchActive;
     AzScrubRowView mAzScrubRowView;
     LauncherAzGestureFxView mLauncherAzGestureFxUnderlayView;
     LauncherAzGestureFxView mLauncherAzGestureFxOverlayView;
@@ -370,6 +372,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private final int[] mTmpViewLocation = new int[2];
     private long mLastAccessoryRenderSyncUptimeMs;
     @Nullable private Runnable mPendingAccessoryGridSnapRunnable;
+    @Nullable private Runnable mPendingSuggestionBarFreezeReleaseRunnable;
+    @Nullable private Runnable mPendingAccessorySettleSyncRunnable;
+    private int mSuggestionBarFreezeGeneration;
     private final Handler mAccessoryRenderHandler = new Handler(Looper.getMainLooper());
     private final Runnable mAccessoryRenderSyncRunnable = () -> {
         mAccessoryRenderSyncPending = false;
@@ -473,6 +478,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mLauncherTransitionController != null) {
             mLauncherTransitionController.maybeHandleGestureContract(intent, mSuggestionBarView);
         }
+        if (isLauncherHomeIntent(intent)) {
+            beginSuggestionBarTransitionFreeze();
+            updateAppLauncherBarHeight();
+            setTerminalToolbarHeight();
+            scheduleAccessoryRenderSync("onNewIntent:home");
+            scheduleAccessorySettleSync("onNewIntent:home", 120L);
+        }
     }
 
     @Override
@@ -509,13 +521,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyTerminalSurfaceAppearance();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
         if (mSuggestionBarView != null) {
-            mSuggestionBarView.prepareForWindowReentry();
+            beginSuggestionBarTransitionFreeze();
             mSuggestionBarView.resetTransientVisualState();
         }
         updateAppLauncherBarHeight();
         setTerminalToolbarHeight();
         configureExtraKeysBackground();
         scheduleAccessoryRenderSync("onStart");
+        scheduleAccessorySettleSync("onStart", 96L);
     
         registerTermuxActivityBroadcastReceiver();
         registerPackageChangeReceiver();
@@ -547,13 +560,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyWallpaperOffsetFixIfNeeded();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
         if (mSuggestionBarView != null) {
-            mSuggestionBarView.prepareForWindowReentry();
+            beginSuggestionBarTransitionFreeze();
             mSuggestionBarView.resetTransientVisualState();
         }
         updateAppLauncherBarHeight();
         setTerminalToolbarHeight();
         configureExtraKeysBackground();
         scheduleAccessoryRenderSync("onResume");
+        scheduleAccessorySettleSync("onResume", 96L);
         if (mSuggestionBarView != null) {
             mSuggestionBarView.post(this::updateAzOverflowAffordance);
         }
@@ -1289,6 +1303,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mAccessoryRenderHandler.removeCallbacks(mAccessoryRenderSyncRunnable);
         mAccessoryRenderSyncPending = false;
         mPendingAccessoryRenderReason = null;
+        if (mPendingAccessorySettleSyncRunnable != null) {
+            mAccessoryRenderHandler.removeCallbacks(mPendingAccessorySettleSyncRunnable);
+            mPendingAccessorySettleSyncRunnable = null;
+        }
+        cancelSuggestionBarTransitionFreeze();
         clearAccessoryRenderEffectBackdrop();
         mAzGestureHandler.removeCallbacks(mPackageRefreshRunnable);
         getDrawer().closeDrawers();
@@ -1497,6 +1516,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             );
             appsBarContainer.addView(mSuggestionBarView, params);
         }
+        ensureSuggestionBarFreezeOverlay(appsBarContainer);
+        if (mSuggestionBarFreezeOverlay != null && mSuggestionBarFreezeOverlay.getParent() != appsBarContainer) {
+            appsBarContainer.addView(mSuggestionBarFreezeOverlay, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ));
+        }
 
         mSuggestionBarView.setAppDataProvider(mLauncherAppDataProvider);
         mSuggestionBarView.setConfigRepository(mLauncherConfigRepository);
@@ -1528,6 +1554,139 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
 
+    private void ensureSuggestionBarFreezeOverlay(@NonNull FrameLayout appsBarContainer) {
+        if (mSuggestionBarFreezeOverlay == null) {
+            mSuggestionBarFreezeOverlay = new ImageView(this);
+            mSuggestionBarFreezeOverlay.setScaleType(ImageView.ScaleType.FIT_XY);
+            mSuggestionBarFreezeOverlay.setVisibility(View.GONE);
+            mSuggestionBarFreezeOverlay.setClickable(false);
+            mSuggestionBarFreezeOverlay.setFocusable(false);
+            mSuggestionBarFreezeOverlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        } else if (mSuggestionBarFreezeOverlay.getParent() instanceof ViewGroup
+            && mSuggestionBarFreezeOverlay.getParent() != appsBarContainer) {
+            ((ViewGroup) mSuggestionBarFreezeOverlay.getParent()).removeView(mSuggestionBarFreezeOverlay);
+        }
+    }
+
+    private boolean isLauncherHomeIntent(@Nullable Intent intent) {
+        if (intent == null || !Intent.ACTION_MAIN.equals(intent.getAction())) {
+            return false;
+        }
+        Set<String> categories = intent.getCategories();
+        if (categories == null || categories.isEmpty()) {
+            return false;
+        }
+        return categories.contains(Intent.CATEGORY_HOME) || categories.contains(Intent.CATEGORY_LAUNCHER);
+    }
+
+    private void scheduleAccessorySettleSync(@NonNull String reason, long delayMs) {
+        if (mPendingAccessorySettleSyncRunnable != null) {
+            mAccessoryRenderHandler.removeCallbacks(mPendingAccessorySettleSyncRunnable);
+        }
+        mPendingAccessorySettleSyncRunnable = () -> {
+            mPendingAccessorySettleSyncRunnable = null;
+            updateAppLauncherBarHeight();
+            setTerminalToolbarHeight();
+            scheduleAccessoryRenderSync(reason + ":settled");
+        };
+        mAccessoryRenderHandler.postDelayed(mPendingAccessorySettleSyncRunnable, Math.max(0L, delayMs));
+    }
+
+    private void beginSuggestionBarTransitionFreeze() {
+        if (mSuggestionBarView == null) {
+            return;
+        }
+        FrameLayout appsBarContainer = findViewById(R.id.apps_bar_viewpager);
+        if (appsBarContainer == null) {
+            mSuggestionBarView.prepareForWindowReentry();
+            return;
+        }
+        ensureSuggestionBarFreezeOverlay(appsBarContainer);
+        boolean snapshotCaptured = false;
+        if (mSuggestionBarFreezeOverlay != null
+            && mSuggestionBarView.getWidth() > 0
+            && mSuggestionBarView.getHeight() > 0
+            && mSuggestionBarView.hasStableDisplayLayout()) {
+            Bitmap snapshot = Bitmap.createBitmap(
+                mSuggestionBarView.getWidth(),
+                mSuggestionBarView.getHeight(),
+                Bitmap.Config.ARGB_8888
+            );
+            Canvas canvas = new Canvas(snapshot);
+            mSuggestionBarView.draw(canvas);
+            mSuggestionBarFreezeOverlay.setImageBitmap(snapshot);
+            mSuggestionBarFreezeOverlay.setVisibility(View.VISIBLE);
+            snapshotCaptured = true;
+        }
+        mSuggestionBarView.prepareForWindowReentry();
+        if (snapshotCaptured) {
+            mSuggestionBarView.setVisibility(View.INVISIBLE);
+        }
+        scheduleSuggestionBarTransitionFreezeRelease();
+    }
+
+    private void scheduleSuggestionBarTransitionFreezeRelease() {
+        if (mPendingSuggestionBarFreezeReleaseRunnable != null) {
+            mAccessoryRenderHandler.removeCallbacks(mPendingSuggestionBarFreezeReleaseRunnable);
+        }
+        final int generation = ++mSuggestionBarFreezeGeneration;
+        mPendingSuggestionBarFreezeReleaseRunnable = new Runnable() {
+            private int attempts;
+
+            @Override
+            public void run() {
+                if (generation != mSuggestionBarFreezeGeneration) {
+                    return;
+                }
+                if (mSuggestionBarView == null) {
+                    cancelSuggestionBarTransitionFreeze();
+                    return;
+                }
+                if (!mSuggestionBarView.hasStableDisplayLayout() && attempts < 20) {
+                    attempts++;
+                    mAccessoryRenderHandler.postDelayed(this, 16L);
+                    return;
+                }
+                if (mSuggestionBarView != null) {
+                    mSuggestionBarView.setVisibility(View.VISIBLE);
+                }
+                if (mSuggestionBarFreezeOverlay != null) {
+                    mSuggestionBarFreezeOverlay.setImageDrawable(null);
+                    mSuggestionBarFreezeOverlay.setVisibility(View.GONE);
+                }
+                mPendingSuggestionBarFreezeReleaseRunnable = null;
+            }
+        };
+        mAccessoryRenderHandler.postDelayed(mPendingSuggestionBarFreezeReleaseRunnable, 32L);
+    }
+
+    private void cancelSuggestionBarTransitionFreeze() {
+        mSuggestionBarFreezeGeneration++;
+        if (mPendingSuggestionBarFreezeReleaseRunnable != null) {
+            mAccessoryRenderHandler.removeCallbacks(mPendingSuggestionBarFreezeReleaseRunnable);
+            mPendingSuggestionBarFreezeReleaseRunnable = null;
+        }
+        if (mSuggestionBarView != null) {
+            mSuggestionBarView.setVisibility(View.VISIBLE);
+        }
+        if (mSuggestionBarFreezeOverlay != null) {
+            mSuggestionBarFreezeOverlay.setImageDrawable(null);
+            mSuggestionBarFreezeOverlay.setVisibility(View.GONE);
+        }
+    }
+
+    private char getSuggestionBarSplitChar() {
+        if (mPreferences == null) {
+            return ' ';
+        }
+        String inputChar = mPreferences.getAppLauncherInputChar();
+        if (inputChar == null) {
+            return ' ';
+        }
+        String trimmed = inputChar.trim();
+        return trimmed.isEmpty() ? ' ' : trimmed.charAt(0);
+    }
+
     static int calculateSuggestionBarMaxButtons(DisplayMetrics displayMetrics) {
         if (displayMetrics == null) {
             return 1;
@@ -1557,7 +1716,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSuggestionBarView.setTextSize(10f);
         mSuggestionBarView.setSearchTolerance(mPreferences.getAppLauncherSearchTolerance());
         mSuggestionBarView.setBandW(mPreferences.isAppLauncherBwIconsEnabled());
-        mSuggestionBarView.setIconScale(mPreferences.getAppLauncherIconScale());
+        mSuggestionBarView.setIconScale(resolveDerivedDockIconScale());
         mSuggestionBarView.setDockRowHeightHintPx(buildDockLayoutMetrics(0).appsBarHeightPx);
         mSuggestionBarView.setAppBarOpacity(mPreferences.getAppBarOpacity());
         mSuggestionBarView.setBlurConfig(mPreferences.getExtraKeysBlurRadius() > 0, mPreferences.getExtraKeysBlurRadius());
@@ -1570,7 +1729,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mLauncherTransitionController.onAnimationPreferenceUpdated();
         }
         mSuggestionBarView.reloadAllApps();
-        String input = mTerminalView == null ? "" : normalizeSuggestionBarInput(mTerminalView.getCurrentInput());
+        String input = "";
+        if (mTerminalView != null && mSuggestionBarExplicitSearchActive) {
+            input = normalizeSuggestionBarInput(mTerminalView.getCurrentInput());
+        }
         mSuggestionBarView.reloadWithInput(input, mTerminalView);
         syncAzScrubLettersAndTint();
     }
@@ -2186,15 +2348,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void applySuggestionBarInputChar() {
         if (mTerminalView == null || mPreferences == null)
             return;
-        String inputChar = mPreferences.getAppLauncherInputChar();
-        char splitChar = ' ';
-        if (inputChar != null) {
-            String trimmed = inputChar.trim();
-            if (!trimmed.isEmpty()) {
-                splitChar = trimmed.charAt(0);
-            }
-        }
-        mTerminalView.setSplitChar(splitChar);
+        mTerminalView.setSplitChar(getSuggestionBarSplitChar());
     }
 
     public void addTermuxActivityRootViewGlobalLayoutListener() {
@@ -2394,7 +2548,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         float density = getResources().getDisplayMetrics().density;
-        float iconScale = mPreferences.getAppLauncherIconScale();
+        float iconScale = resolveDerivedDockIconScale();
         float normalizedIconScale = Math.max(0f, Math.min(1f, (iconScale - 1.0f) / 0.8f));
         int appsBarHeightPx = Math.max(0,
             Math.round(getDockBaseToolbarHeightPx() * mPreferences.getAppLauncherBarHeightScale()) + Math.max(0, additionalAppsBarHeightPx));
@@ -2414,6 +2568,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             : 0;
 
         return new DockLayoutMetrics(appsBarHeightPx, azRowHeightPx, interRowGapPx);
+    }
+
+    private float resolveDerivedDockIconScale() {
+        if (mPreferences == null) {
+            return 1.24f;
+        }
+        float barHeightScale = mPreferences.getAppLauncherBarHeightScale();
+        float normalized = Math.max(0f, Math.min(1f, (barHeightScale - 1.24f) / (1.60f - 1.24f)));
+        return 1.12f + (normalized * 0.24f);
     }
 
     private void applyDockLayoutMetrics(@NonNull DockLayoutMetrics metrics) {
@@ -2706,12 +2869,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     @NonNull
     private Rect getVisibleWallpaperFrameRect(@Nullable View wallpaperFrame) {
-        Rect frameRect = new Rect();
-        if (wallpaperFrame != null && wallpaperFrame.getGlobalVisibleRect(frameRect) && frameRect.width() > 0 && frameRect.height() > 0) {
-            return frameRect;
-        }
         DisplayMetrics realMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getRealMetrics(realMetrics);
+        if (wallpaperFrame != null && wallpaperFrame.getWidth() > 0 && wallpaperFrame.getHeight() > 0) {
+            wallpaperFrame.getLocationOnScreen(mTmpParentLocation);
+            int left = mTmpParentLocation[0];
+            int top = mTmpParentLocation[1];
+            int right = left + wallpaperFrame.getWidth();
+            int bottom = top + wallpaperFrame.getHeight();
+            if (!isImeVisible()) {
+                bottom += Math.max(0, realMetrics.heightPixels - bottom);
+            }
+            return new Rect(left, top, right, bottom);
+        }
         return new Rect(0, 0, Math.max(1, realMetrics.widthPixels), Math.max(1, realMetrics.heightPixels));
     }
 
@@ -3076,11 +3246,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         resetAzGestureState(false, true);
         mSuggestionBarView.onTerminalInteraction();
-        String input = mTerminalView.getCurrentInput(inputChar);
-        if (input == null) {
-            input = "";
+        if (inputChar == getSuggestionBarSplitChar()) {
+            mSuggestionBarExplicitSearchActive = true;
         }
-        mSuggestionBarView.reloadWithInput(input, mTerminalView);
+        if (!mSuggestionBarExplicitSearchActive) {
+            return;
+        }
+        String input = normalizeSuggestionBarInput(mTerminalView.getCurrentInput(inputChar));
+        if (!input.isEmpty()) {
+            mSuggestionBarView.reloadWithInput(input, mTerminalView);
+            return;
+        }
+        if (mSuggestionBarView.isSearchSurfaceActive()) {
+            mSuggestionBarView.reloadWithInput("", mTerminalView);
+        }
     }
 
     @Override
@@ -3091,16 +3270,23 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         resetAzGestureState(false, true);
         mSuggestionBarView.onTerminalInteraction();
         if (enter) {
-            mSuggestionBarView.reloadWithInput("", mTerminalView);
-        } else {
-            String input = mTerminalView.getCurrentInput();
-            if (input == null) {
-                input = "";
+            mSuggestionBarExplicitSearchActive = false;
+            if (mSuggestionBarView.isSearchSurfaceActive()) {
+                mSuggestionBarView.reloadWithInput("", mTerminalView);
             }
-            if (delete && input.length() > 0) {
-                input = input.substring(0, input.length() - 1);
-            }
+            return;
+        }
+        if (!mSuggestionBarExplicitSearchActive && !mSuggestionBarView.isSearchSurfaceActive()) {
+            return;
+        }
+        String input = normalizeSuggestionBarInput(mTerminalView.getCurrentInput());
+        if (!input.isEmpty()) {
             mSuggestionBarView.reloadWithInput(input, mTerminalView);
+            return;
+        }
+        mSuggestionBarExplicitSearchActive = false;
+        if (mSuggestionBarView.isSearchSurfaceActive()) {
+            mSuggestionBarView.reloadWithInput("", mTerminalView);
         }
     }
 
@@ -3273,7 +3459,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             updateAzOverflowAffordance();
         }
         String input = "";
-        if (mTerminalView != null) {
+        if (mTerminalView != null && mSuggestionBarExplicitSearchActive) {
             input = normalizeSuggestionBarInput(mTerminalView.getCurrentInput());
         }
         mSuggestionBarView.reloadWithInput(input, mTerminalView);
@@ -3364,10 +3550,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mSuggestionBarView.clearAzPreview();
             }
         }
-        if (mSuggestionBarView != null) {
-            mSuggestionBarView.prepareForWindowReentry();
-        }
+        beginSuggestionBarTransitionFreeze();
         scheduleAccessoryRenderSync(visible ? "ime:open" : "ime:close");
+        scheduleAccessorySettleSync(visible ? "ime:open" : "ime:close", visible ? 64L : 132L);
     }
 
     private void scheduleAccessoryRenderSync(@NonNull String reason) {
@@ -3515,9 +3700,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setMargins();
         updateAppLauncherBarHeight();
         applySuggestionBarPreferences();
-        if (mSuggestionBarView != null) {
-            mSuggestionBarView.prepareForWindowReentry();
-        }
+        beginSuggestionBarTransitionFreeze();
         applySuggestionBarInputChar();
         setTerminalToolbarHeight();
         applySeamlessStatusBackgroundModeIfNeeded();
@@ -3530,6 +3713,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalSessionActivityClient.onReloadActivityStyling();
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onReloadActivityStyling();
+        scheduleAccessorySettleSync("reloadActivityStyling", 96L);
         // To change the activity and drawer theme, activity needs to be recreated.
         // It will destroy the activity, including all stored variables and views, and onCreate()
         // will be called again. Extra keys input text, terminal sessions and transcripts will be preserved.
