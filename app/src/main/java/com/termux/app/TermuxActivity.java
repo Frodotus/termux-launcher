@@ -427,18 +427,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 @NonNull WindowInsetsCompat insets,
                 @NonNull List<WindowInsetsAnimationCompat> runningAnimations
             ) {
-                if (!isUsingSmoothSoftKeyboardBehavior()) {
-                    applySmoothDockImeOffset(0);
-                    return insets;
-                }
-                int currentImeBottom = insets.getInsets(Type.ime()).bottom;
-                for (WindowInsetsAnimationCompat animation : runningAnimations) {
-                    if ((animation.getTypeMask() & Type.ime()) == 0) {
-                        continue;
-                    }
-                    applySmoothDockImeOffset(Math.max(0, mSmoothImeTargetBottomInsetPx - currentImeBottom));
-                    return insets;
-                }
                 applySmoothDockImeOffset(0);
                 return insets;
             }
@@ -564,9 +552,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (mSuggestionBarView != null) {
                 mSuggestionBarView.resetTransientVisualState();
             }
-            if (!isUsingCustomSoftKeyboardBehavior()) {
-                applyAccessoryGeometryIfNeeded(false, "onNewIntent:home");
-            }
+            applyAccessoryGeometryIfNeeded(false, "onNewIntent:home");
             scheduleAccessoryRenderSync("onNewIntent:home");
         }
     }
@@ -579,9 +565,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mIsInvalidState) return;
     
         mIsVisible = true;
-        if (isUsingCustomSoftKeyboardBehavior() && !mIsOnResumeAfterOnCreate && !mIsActivityRecreated) {
-            mDelayRootMarginAdjustmentsUntilUptimeMs = SystemClock.uptimeMillis() + 220L;
-        }
         if (mPendingBootstrapOnStart && mTermuxService != null && mTermuxService.isTermuxSessionsEmpty()) {
             mPendingBootstrapOnStart = false;
             Intent pendingIntent = mPendingLaunchIntent;
@@ -623,9 +606,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             reloadActivityStyling(true);
             return;
         }
-        if (isUsingCustomSoftKeyboardBehavior() && !mIsOnResumeAfterOnCreate && !mIsActivityRecreated) {
-            mDelayRootMarginAdjustmentsUntilUptimeMs = SystemClock.uptimeMillis() + 220L;
-        }
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onResume();
         if (mTermuxTerminalViewClient != null)
@@ -666,12 +646,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
         boolean wallpaperMode = shouldUseWallpaperPassthroughMode();
-        int accessoryBaseColor = wallpaperMode
-            ? resolveAccessoryGlassBaseColor()
-            : getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
+        int accessoryBaseColor = wallpaperMode && (mPreferences == null || !mPreferences.isAccessoryMaterialTintEnabled())
+            ? Color.TRANSPARENT
+            : resolveAccessoryGlassBaseColor();
+        int sessionsBaseColor = resolveAccessoryGlassBaseColor();
         applyGlassSurfaceColor(R.id.extrakeys_background, accessoryBaseColor);
         applyGlassSurfaceColor(R.id.activity_termux_bottom_space_background, accessoryBaseColor);
-        applyGlassSurfaceColor(R.id.sessions_background, accessoryBaseColor);
+        applyGlassSurfaceColor(R.id.sessions_background, sessionsBaseColor);
 
         if (wallpaperMode) {
             boolean showSurface = shouldShowTerminalOverlaySurface();
@@ -740,13 +721,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private int resolveAccessoryGlassBaseColor() {
-        if (mPreferences != null && mPreferences.isAccessoryMaterialTintEnabled()) {
-            return getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
-        }
-        int overlayColor = mProperties != null
-            ? mProperties.getBackgroundOverlayColor()
-            : getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfacePanelHigh, R.color.termux_surface_panel_high);
-        return 0xFF000000 | (overlayColor & 0x00FFFFFF);
+        return getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
     }
 
     private int resolveAccessoryOutlineColor() {
@@ -770,6 +745,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private int resolveTerminalSurfaceColor() {
+        if (shouldUseWallpaperPassthroughMode() && (mPreferences == null || !mPreferences.isTerminalMaterialTintEnabled())) {
+            return Color.TRANSPARENT;
+        }
         int baseColor = shouldUseWallpaperPassthroughMode()
             ? resolveTerminalOverlayBaseColor()
             : getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
@@ -780,6 +758,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private int resolveAccessorySurfaceColor(float surfaceAlpha) {
+        if (shouldUseWallpaperPassthroughMode() && (mPreferences == null || !mPreferences.isAccessoryMaterialTintEnabled())) {
+            return Color.TRANSPARENT;
+        }
         int baseColor = shouldUseWallpaperPassthroughMode()
             ? resolveAccessoryGlassBaseColor()
             : getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
@@ -806,7 +787,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return true;
         }
         return mPreferences.isTerminalMaterialTintEnabled()
-            || mPreferences.getTerminalBackgroundOpacity() > 0;
+            && mPreferences.getTerminalBackgroundOpacity() > 0;
     }
 
     @Nullable
@@ -1373,13 +1354,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (accessoryContainer == null) {
             return;
         }
-        if (!isUsingSmoothSoftKeyboardBehavior()) {
-            if (accessoryContainer.getTranslationY() != 0f) {
-                accessoryContainer.setTranslationY(0f);
-            }
-            return;
+        if (accessoryContainer.getTranslationY() != 0f) {
+            accessoryContainer.setTranslationY(0f);
         }
-        accessoryContainer.setTranslationY(Math.max(0, translationYPx));
     }
 
     private void applySeamlessStatusBackgroundModeIfNeeded() {
@@ -1742,8 +1719,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     public boolean shouldDelayRootMarginAdjustments() {
-        return isUsingCustomSoftKeyboardBehavior()
-            && SystemClock.uptimeMillis() < mDelayRootMarginAdjustmentsUntilUptimeMs;
+        return false;
     }
 
     private void applyAccessoryGeometryIfNeeded(boolean force, @NonNull String reason) {
@@ -1754,7 +1730,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         mLastAccessoryGeometryApplyUptimeMs = now;
         updateAppLauncherBarHeight();
-        setTerminalToolbarHeight(!isUsingCustomSoftKeyboardBehavior());
+        setTerminalToolbarHeight(true);
         configureExtraKeysBackground();
     }
 
@@ -3213,26 +3189,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return mIsActivityRecreated;
     }
 
-    @NonNull
-    public String getSoftKeyboardBehaviorMode() {
-        if (mPreferences == null) {
-            return "stock";
-        }
-        return mPreferences.getAppLauncherSoftKeyboardBehavior();
-    }
-
-    public boolean isUsingCustomSoftKeyboardBehavior() {
-        return !"stock".equals(getSoftKeyboardBehaviorMode());
-    }
-
-    public boolean isUsingSimpleSoftKeyboardBehavior() {
-        return "simple".equals(getSoftKeyboardBehaviorMode());
-    }
-
-    public boolean isUsingSmoothSoftKeyboardBehavior() {
-        return "smooth".equals(getSoftKeyboardBehaviorMode());
-    }
-
     public TermuxService getTermuxService() {
         return mTermuxService;
     }
@@ -3612,15 +3568,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTermuxTerminalSessionActivityClient != null) {
             mTermuxTerminalSessionActivityClient.onImeVisibilityChanged(visible);
         }
-        if (isUsingCustomSoftKeyboardBehavior()) {
-            mDelayRootMarginAdjustmentsUntilUptimeMs = SystemClock.uptimeMillis() + (visible ? 260L : 220L);
-            mPendingImeGeometryVisible = null;
-            mAccessoryRenderHandler.removeCallbacks(mDeferredImeGeometryRunnable);
-            setTerminalToolbarHeight(false);
-            configureExtraKeysBackground();
-        } else {
-            applyAccessoryGeometryIfNeeded(true, visible ? "ime:open" : "ime:close");
-        }
+        applyAccessoryGeometryIfNeeded(true, visible ? "ime:open" : "ime:close");
         scheduleAccessoryRenderSync(visible ? "ime:open" : "ime:close");
         restartAccessoryBlurHeartbeat();
     }

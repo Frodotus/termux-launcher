@@ -144,13 +144,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void onImeVisibilityChanged(boolean visible) {
         if (visible && mForegroundRefreshPending) {
             mUiHandler.removeCallbacks(mForegroundTerminalRefreshRunnable);
-            if (mActivity.isUsingSmoothSoftKeyboardBehavior()) {
-                mUiHandler.postDelayed(mForegroundTerminalRefreshRunnable, 180L);
-            } else if (mActivity.isUsingCustomSoftKeyboardBehavior()) {
-                mUiHandler.postDelayed(mForegroundTerminalRefreshRunnable, 96L);
-            } else {
-                mForegroundTerminalRefreshRunnable.run();
-            }
+            mForegroundTerminalRefreshRunnable.run();
         }
     }
 
@@ -209,13 +203,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     }
 
     private boolean shouldDeferForegroundScreenRefresh() {
-        if (!mActivity.isUsingCustomSoftKeyboardBehavior())
-            return false;
-        if (mActivity.isOnResumeAfterOnCreate() || mActivity.isActivityRecreated())
-            return false;
-        if (mActivity.isImeVisibleForLayout())
-            return false;
-        return mActivity.getPreferences().isSoftKeyboardEnabled();
+        return false;
     }
 
     private void scheduleDeferredForegroundRefresh() {

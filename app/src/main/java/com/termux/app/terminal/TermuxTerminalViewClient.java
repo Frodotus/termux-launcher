@@ -115,10 +115,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
      * Should be called when mActivity.onResume() is called
      */
     public void onResume() {
-        boolean useStockBehavior = !mActivity.isUsingCustomSoftKeyboardBehavior();
-        if (useStockBehavior || mActivity.isOnResumeAfterOnCreate() || mActivity.isActivityRecreated()) {
-            setSoftKeyboardState(true, mActivity.isActivityRecreated());
-        }
+        setSoftKeyboardState(true, mActivity.isActivityRecreated());
         mTerminalCursorBlinkerStateAlreadySet = false;
         if (mActivity.getTerminalView().mEmulator != null) {
             // Start terminal cursor blinking if enabled

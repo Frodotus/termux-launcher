@@ -36,17 +36,4 @@
             app:summary="@string/termux_app_launcher_reset_usage_ranking_summary" />
     </PreferenceCategory>
 
-    <PreferenceCategory
-        app:key="apps_bar_soft_keyboard"
-        app:title="@string/apps_bar_soft_keyboard_header">
-
-        <ListPreference
-            app:key="app_launcher_soft_keyboard_behavior"
-            app:title="@string/termux_app_launcher_soft_keyboard_behavior_title"
-            app:summary="@string/termux_app_launcher_soft_keyboard_behavior_summary"
-            android:defaultValue="stock"
-            app:entries="@array/app_launcher_soft_keyboard_behavior_entries"
-            app:entryValues="@array/app_launcher_soft_keyboard_behavior_values" />
-    </PreferenceCategory>
-
 </PreferenceScreen>

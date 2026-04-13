@@ -214,13 +214,6 @@ public final class TermuxPreferenceConstants {
         public static final boolean DEFAULT_APP_LAUNCHER_ANIMATION_SAFE_MODE = false;
 
         /**
-         * Defines launcher soft keyboard behavior mode.
-         */
-        public static final String KEY_APP_LAUNCHER_SOFT_KEYBOARD_BEHAVIOR = "app_launcher_soft_keyboard_behavior";
-
-        public static final String DEFAULT_APP_LAUNCHER_SOFT_KEYBOARD_BEHAVIOR = "stock";
-
-        /**
          * Defines the key for whether the soft keyboard will be enabled, for cases where users want
          * to use a hardware keyboard instead.
          */
