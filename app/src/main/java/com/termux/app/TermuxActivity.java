@@ -1357,19 +1357,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             }
         }
 
-        View contentLayout = findViewById(R.id.activity_termux_root_relative_layout);
-        if (contentLayout != null) {
-            int targetPaddingTop = shouldEnableSeamlessStatusBackground() ? statusBarInsetTop : 0;
-            if (contentLayout.getPaddingTop() != targetPaddingTop) {
-                contentLayout.setPadding(
-                    contentLayout.getPaddingLeft(),
-                    targetPaddingTop,
-                    contentLayout.getPaddingRight(),
-                    contentLayout.getPaddingBottom()
-                );
-            }
-        }
-
         applyTerminalSurfaceAppearance();
     }
 
@@ -1671,6 +1658,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applySuggestionBarPreferences();
         applyDockLayoutMetrics(buildDockLayoutMetrics(0));
         mSuggestionBarView.reload();
+        mSuggestionBarView.post(() -> {
+            if (mSuggestionBarView == null) {
+                return;
+            }
+            mSuggestionBarView.reloadAllApps();
+            mSuggestionBarView.reload();
+        });
         if (mTermuxTerminalViewClient != null) {
             mTermuxTerminalViewClient.setSuggestionBarCallback(this);
         }
