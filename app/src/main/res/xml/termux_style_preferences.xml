@@ -31,10 +31,6 @@
             android:defaultValue="100"
             app:showSeekBarValue="true" />
 
-        <SwitchPreferenceCompat
-            app:key="terminal_material_tint_enabled"
-            app:title="@string/termux_terminal_material_tint_enabled_title" />
-
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -57,10 +53,6 @@
             android:max="100"
             android:defaultValue="50"
             app:showSeekBarValue="true" />
-
-        <SwitchPreferenceCompat
-            app:key="accessory_material_tint_enabled"
-            app:title="@string/termux_accessory_material_tint_enabled_title" />
 
         <androidx.preference.SeekBarPreference
             app:key="app_launcher_button_count"

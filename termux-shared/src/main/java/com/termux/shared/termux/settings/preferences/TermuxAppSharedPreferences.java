@@ -561,38 +561,6 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_MONET_OVERLAY_ENABLED, value, false);
     }
 
-    public boolean isTerminalMaterialTintEnabled() {
-        return SharedPreferenceUtils.getBoolean(
-            mSharedPreferences,
-            TERMUX_APP.KEY_TERMINAL_MATERIAL_TINT_ENABLED,
-            TERMUX_APP.DEFAULT_VALUE_TERMINAL_MATERIAL_TINT_ENABLED
-        );
-    }
-
-    public void setTerminalMaterialTintEnabled(boolean value) {
-        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_MATERIAL_TINT_ENABLED, value, false);
-    }
-
-    public boolean isAccessoryMaterialTintEnabled() {
-        return SharedPreferenceUtils.getBoolean(
-            mSharedPreferences,
-            TERMUX_APP.KEY_ACCESSORY_MATERIAL_TINT_ENABLED,
-            TERMUX_APP.DEFAULT_VALUE_ACCESSORY_MATERIAL_TINT_ENABLED
-        );
-    }
-
-    public void setAccessoryMaterialTintEnabled(boolean value) {
-        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_ACCESSORY_MATERIAL_TINT_ENABLED, value, false);
-    }
-
-    public String getManualOverlayColor() {
-        return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_MANUAL_OVERLAY_COLOR, TERMUX_APP.DEFAULT_VALUE_MANUAL_OVERLAY_COLOR, true);
-    }
-
-    public void setManualOverlayColor(String value) {
-        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_MANUAL_OVERLAY_COLOR, value, false);
-    }
-
     public boolean arePluginErrorNotificationsEnabled(boolean readFromFile) {
         if (readFromFile)
             return SharedPreferenceUtils.getBoolean(mMultiProcessSharedPreferences, TERMUX_APP.KEY_PLUGIN_ERROR_NOTIFICATIONS_ENABLED, TERMUX_APP.DEFAULT_VALUE_PLUGIN_ERROR_NOTIFICATIONS_ENABLED);

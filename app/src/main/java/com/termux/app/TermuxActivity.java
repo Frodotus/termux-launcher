@@ -646,9 +646,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
         boolean wallpaperMode = shouldUseWallpaperPassthroughMode();
-        int accessoryBaseColor = wallpaperMode && (mPreferences == null || !mPreferences.isAccessoryMaterialTintEnabled())
-            ? Color.TRANSPARENT
-            : resolveAccessoryGlassBaseColor();
+        int accessoryBaseColor = resolveAccessoryGlassBaseColor();
         int sessionsBaseColor = resolveAccessoryGlassBaseColor();
         applyGlassSurfaceColor(R.id.extrakeys_background, accessoryBaseColor);
         applyGlassSurfaceColor(R.id.activity_termux_bottom_space_background, accessoryBaseColor);
@@ -745,9 +743,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private int resolveTerminalSurfaceColor() {
-        if (shouldUseWallpaperPassthroughMode() && (mPreferences == null || !mPreferences.isTerminalMaterialTintEnabled())) {
-            return Color.TRANSPARENT;
-        }
         int baseColor = shouldUseWallpaperPassthroughMode()
             ? resolveTerminalOverlayBaseColor()
             : getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
@@ -758,9 +753,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private int resolveAccessorySurfaceColor(float surfaceAlpha) {
-        if (shouldUseWallpaperPassthroughMode() && (mPreferences == null || !mPreferences.isAccessoryMaterialTintEnabled())) {
-            return Color.TRANSPARENT;
-        }
         int baseColor = shouldUseWallpaperPassthroughMode()
             ? resolveAccessoryGlassBaseColor()
             : getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
@@ -786,8 +778,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (!shouldUseWallpaperPassthroughMode()) {
             return true;
         }
-        return mPreferences.isTerminalMaterialTintEnabled()
-            && mPreferences.getTerminalBackgroundOpacity() > 0;
+        return mPreferences.getTerminalBackgroundOpacity() > 0;
     }
 
     @Nullable
