@@ -586,11 +586,11 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
     }
 
     public boolean isTerminalMaterialTintEnabled() {
-        if (mSharedPreferences.contains(TERMUX_APP.KEY_TERMINAL_MATERIAL_TINT_ENABLED)) {
-            return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_MATERIAL_TINT_ENABLED,
-                TERMUX_APP.DEFAULT_VALUE_TERMINAL_MATERIAL_TINT_ENABLED);
-        }
-        return isMonetBackgroundEnabled() || isMonetOverlayEnabled();
+        return SharedPreferenceUtils.getBoolean(
+            mSharedPreferences,
+            TERMUX_APP.KEY_TERMINAL_MATERIAL_TINT_ENABLED,
+            TERMUX_APP.DEFAULT_VALUE_TERMINAL_MATERIAL_TINT_ENABLED
+        );
     }
 
     public void setTerminalMaterialTintEnabled(boolean value) {
@@ -598,11 +598,11 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
     }
 
     public boolean isAccessoryMaterialTintEnabled() {
-        if (mSharedPreferences.contains(TERMUX_APP.KEY_ACCESSORY_MATERIAL_TINT_ENABLED)) {
-            return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_ACCESSORY_MATERIAL_TINT_ENABLED,
-                TERMUX_APP.DEFAULT_VALUE_ACCESSORY_MATERIAL_TINT_ENABLED);
-        }
-        return isMonetBackgroundEnabled() || isMonetOverlayEnabled();
+        return SharedPreferenceUtils.getBoolean(
+            mSharedPreferences,
+            TERMUX_APP.KEY_ACCESSORY_MATERIAL_TINT_ENABLED,
+            TERMUX_APP.DEFAULT_VALUE_ACCESSORY_MATERIAL_TINT_ENABLED
+        );
     }
 
     public void setAccessoryMaterialTintEnabled(boolean value) {

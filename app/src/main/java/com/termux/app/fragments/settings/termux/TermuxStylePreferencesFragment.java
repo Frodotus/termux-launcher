@@ -199,10 +199,11 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 break;
             case "terminal_material_tint_enabled":
                 setTerminalMaterialTintEnabled(value);
+                TermuxActivity.updateTermuxActivityStyling(mContext, false);
                 break;
             case "accessory_material_tint_enabled":
                 mPreferences.setAccessoryMaterialTintEnabled(value);
-                TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
+                TermuxActivity.updateTermuxActivityStyling(mContext, false);
                 break;
             case "extrakeys_blur_enabled":
                 // Legacy compatibility: map old boolean writes to the new radius-driven model.
@@ -447,7 +448,7 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
     private void setTerminalAndAccessoryMaterialTintEnabled(boolean enabled) {
         setTerminalMaterialTintEnabled(enabled);
         mPreferences.setAccessoryMaterialTintEnabled(enabled);
-        TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
+        TermuxActivity.updateTermuxActivityStyling(mContext, false);
     }
 
     private void setTerminalMaterialTintEnabled(boolean enabled) {
