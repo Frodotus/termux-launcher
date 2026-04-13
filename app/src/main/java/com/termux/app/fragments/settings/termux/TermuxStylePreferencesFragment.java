@@ -356,6 +356,9 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
             case "app_launcher_input_char":
                 mPreferences.setAppLauncherInputChar(value);
                 break;
+            case "app_launcher_soft_keyboard_behavior":
+                mPreferences.setAppLauncherSoftKeyboardBehavior(value);
+                break;
             case "app_launcher_default_buttons":
                 mPreferences.setAppLauncherDefaultButtons(value);
                 break;
@@ -415,6 +418,8 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 return mPreferences.getAppLauncherSearchMode();
             case "app_launcher_input_char":
                 return mPreferences.getAppLauncherInputChar();
+            case "app_launcher_soft_keyboard_behavior":
+                return mPreferences.getAppLauncherSoftKeyboardBehavior();
             case "app_launcher_default_buttons":
                 return mPreferences.getAppLauncherDefaultButtons();
             case "app_launcher_bar_height":

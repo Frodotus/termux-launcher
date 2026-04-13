@@ -31,10 +31,6 @@
             android:defaultValue="100"
             app:showSeekBarValue="true" />
 
-        <SwitchPreferenceCompat
-            app:key="terminal_material_tint_enabled"
-            app:title="@string/termux_terminal_material_tint_enabled_title" />
-
     </PreferenceCategory>
 
     <PreferenceCategory

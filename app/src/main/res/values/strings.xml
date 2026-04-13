@@ -160,6 +160,7 @@
     <string name="termux_terminal_background_header">Terminal</string>
     <string name="termux_extrakeys_appsbar_header">Dock</string>
     <string name="apps_bar_search_header">Search</string>
+    <string name="apps_bar_soft_keyboard_header">Soft Keyboard Behavior</string>
     <string name="apps_bar_icons_header">Icons</string>
     <string name="apps_bar_visual_header">Visual</string>
 
@@ -305,6 +306,10 @@
                 <string name="termux_app_launcher_az_double_tap_lock_summary">double tap the alphabets row to lock screen, uses shizuku.</string>
                 <string name="termux_app_launcher_reset_usage_ranking_title">Reset App Order</string>
                 <string name="termux_app_launcher_reset_usage_ranking_summary">Apps are ordered based on how often you use them. Tap to reset this order.</string>
+                <string name="termux_app_launcher_soft_keyboard_behavior_title">Soft Keyboard Behavior</string>
+                <string name="termux_app_launcher_soft_keyboard_behavior_summary">Choose how keyboard return behaves when reopening launcher.</string>
+                <string name="termux_app_launcher_soft_keyboard_behavior_stock">Stock</string>
+                <string name="termux_app_launcher_soft_keyboard_behavior_custom">Custom</string>
                 <string name="termux_app_launcher_bar_height_title">Dock size</string>
                 <string name="termux_app_launcher_bar_height_summary">Choose the overall dock size.</string>
                 <string name="termux_app_launcher_icon_scale_title">Icon scaling</string>

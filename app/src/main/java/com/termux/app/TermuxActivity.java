@@ -351,6 +351,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private static final String LOG_TAG = "TermuxActivity";
     private static final int ACCESSORY_BLUR_DOWNSAMPLE_FACTOR = 4;
+    private static final long ACCESSORY_BLUR_HEARTBEAT_MS = 120_000L;
     private static volatile boolean sPendingStyleReloadOnNextResume = false;
 
     private static final int SUGGESTION_BAR_MIN_BUTTON_DP = 56;
@@ -372,6 +373,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private long mLastAccessoryRenderSyncUptimeMs;
     private long mLastAccessoryGeometryApplyUptimeMs;
     private final Handler mAccessoryRenderHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mAccessoryBlurHeartbeatRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!mIsVisible) {
+                return;
+            }
+            AccessoryRenderState state = buildAccessoryRenderState();
+            if (!state.toolbarShown || !state.blurEnabled) {
+                return;
+            }
+            scheduleAccessoryRenderSync("blur:heartbeat");
+            mAccessoryRenderHandler.postDelayed(this, ACCESSORY_BLUR_HEARTBEAT_MS);
+        }
+    };
     private final Runnable mAccessoryRenderSyncRunnable = () -> {
         mAccessoryRenderSyncPending = false;
         String reason = mPendingAccessoryRenderReason == null ? "unknown" : mPendingAccessoryRenderReason;
@@ -515,6 +530,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applySeamlessStatusBackgroundModeIfNeeded();
         applyTerminalSurfaceAppearance();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
+        restartAccessoryBlurHeartbeat();
         registerTermuxActivityBroadcastReceiver();
         registerPackageChangeReceiver();
         registerLauncherAppsCallback();
@@ -543,6 +559,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyTerminalSurfaceAppearance();
         applyWallpaperOffsetFixIfNeeded();
         configureBackgroundBlur(R.id.sessions_backgroundblur, R.id.sessions_background, false, mPreferences.getSessionsOpacity() / 100f, 0);
+        restartAccessoryBlurHeartbeat();
         if (mSuggestionBarView != null) {
             mSuggestionBarView.post(this::updateAzOverflowAffordance);
         }
@@ -577,18 +594,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         applyGlassSurfaceColor(R.id.sessions_background, accessoryBaseColor);
 
         if (wallpaperMode) {
-            boolean showSurface = shouldShowTerminalGlassSurface();
-            int terminalSurfaceColor = showSurface ? resolveTerminalSurfaceColor() : Color.TRANSPARENT;
             terminalSurfaceHost.setBackgroundColor(Color.TRANSPARENT);
             terminalBodySurface.setBackgroundColor(Color.TRANSPARENT);
             terminalBodySurface.setVisibility(View.GONE);
             if (terminalView != null) {
                 terminalView.setBackgroundColor(Color.TRANSPARENT);
                 if (terminalView instanceof TerminalView) {
-                    ((TerminalView) terminalView).setTransparentFrameOverlayColor(terminalSurfaceColor);
+                    ((TerminalView) terminalView).setTransparentFrameOverlayColor(Color.TRANSPARENT);
                 }
             }
-            applyTerminalStatusBarSurfaceColor(showSurface, terminalSurfaceColor);
+            applyTerminalStatusBarSurfaceColor(false, Color.TRANSPARENT);
             return;
         }
 
@@ -640,16 +655,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
 
-    private int resolveTerminalGlassBaseColor() {
-        if (mPreferences != null && mPreferences.isTerminalMaterialTintEnabled()) {
-            return getTermuxThemeColor(com.termux.shared.R.attr.termuxColorAccentContainer, R.color.termux_accent_container);
-        }
-        int overlayColor = mProperties != null
-            ? mProperties.getBackgroundOverlayColor()
-            : getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfacePanelHigh, R.color.termux_surface_panel_high);
-        return 0xFF000000 | (overlayColor & 0x00FFFFFF);
-    }
-
     private int resolveAccessoryGlassBaseColor() {
         if (mPreferences != null && mPreferences.isAccessoryMaterialTintEnabled()) {
             return getTermuxThemeColor(com.termux.shared.R.attr.termuxColorAccentContainer, R.color.termux_accent_container);
@@ -677,9 +682,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private int resolveTerminalSurfaceColor() {
-        int baseColor = shouldUseWallpaperPassthroughMode()
-            ? resolveTerminalGlassBaseColor()
-            : getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
+        int baseColor = getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
         int alpha = Math.round(resolveOpacityAlpha(
             mPreferences != null ? mPreferences.getTerminalBackgroundOpacity() : 100
         ) * 255f);
@@ -798,20 +801,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         edgeFx.setVisibility(View.VISIBLE);
     }
 
-    private boolean shouldShowTerminalGlassSurface() {
-        if (mProperties == null || mProperties.isUsingFullScreen()) {
-            return false;
-        }
-        if (mPreferences == null) {
-            return false;
-        }
-        if (!shouldUseWallpaperPassthroughMode()) {
-            return true;
-        }
-        return mPreferences.isTerminalMaterialTintEnabled()
-            || mPreferences.getTerminalBackgroundOpacity() > 0;
-    }
-
     private void configureBackgroundBlur(int blurViewId, int backgroundViewId, boolean isBlurEnabled, float surfaceAlpha, int blurRadiusDp) {
         View blurView = findViewById(blurViewId);
         View backgroundView = findViewById(backgroundViewId);
@@ -892,6 +881,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         backdrop.setRenderEffect(null);
         backdrop.setImageDrawable(null);
         backdrop.setVisibility(View.GONE);
+    }
+
+    private void restartAccessoryBlurHeartbeat() {
+        mAccessoryRenderHandler.removeCallbacks(mAccessoryBlurHeartbeatRunnable);
+        AccessoryRenderState state = buildAccessoryRenderState();
+        if (mIsVisible && state.toolbarShown && state.blurEnabled) {
+            mAccessoryRenderHandler.postDelayed(mAccessoryBlurHeartbeatRunnable, ACCESSORY_BLUR_HEARTBEAT_MS);
+        }
     }
 
     private boolean shouldUseManagedWallpaperBlurSource() {
@@ -1211,14 +1208,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mTerminalView == null) {
             return;
         }
-        mTerminalView.setUseTransparentFrameClear(shouldUseWallpaperPassthroughMode() || shouldShowTerminalGlassSurface());
+        mTerminalView.setUseTransparentFrameClear(shouldUseWallpaperPassthroughMode());
     }
 
     private boolean shouldEnableSeamlessStatusBackground() {
-        if (mPreferences == null || mProperties == null || mProperties.isUsingFullScreen()) {
-            return false;
-        }
-        return shouldUseWallpaperPassthroughMode() && shouldShowTerminalGlassSurface();
+        return false;
     }
 
     private void applySeamlessStatusBackgroundModeIfNeeded() {
@@ -1285,6 +1279,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         unregisterPackageChangeReceiver();
         unregisterLauncherAppsCallback();
         mAccessoryRenderHandler.removeCallbacks(mAccessoryRenderSyncRunnable);
+        mAccessoryRenderHandler.removeCallbacks(mAccessoryBlurHeartbeatRunnable);
         mAccessoryRenderSyncPending = false;
         mPendingAccessoryRenderReason = null;
         clearAccessoryRenderEffectBackdrop();
@@ -3021,12 +3016,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return mIsVisible;
     }
 
+    public boolean isImeVisibleForLayout() {
+        return isImeVisible();
+    }
+
     public boolean isOnResumeAfterOnCreate() {
         return mIsOnResumeAfterOnCreate;
     }
 
     public boolean isActivityRecreated() {
         return mIsActivityRecreated;
+    }
+
+    public boolean isUsingCustomSoftKeyboardBehavior() {
+        return mPreferences != null
+            && "custom".equals(mPreferences.getAppLauncherSoftKeyboardBehavior());
     }
 
     public TermuxService getTermuxService() {
@@ -3391,8 +3395,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mSuggestionBarView.clearAzPreview();
             }
         }
+        if (mTermuxTerminalSessionActivityClient != null) {
+            mTermuxTerminalSessionActivityClient.onImeVisibilityChanged(visible);
+        }
         applyAccessoryGeometryIfNeeded(true, visible ? "ime:open" : "ime:close");
         scheduleAccessoryRenderSync(visible ? "ime:open" : "ime:close");
+        restartAccessoryBlurHeartbeat();
     }
 
     private void scheduleAccessoryRenderSync(@NonNull String reason) {

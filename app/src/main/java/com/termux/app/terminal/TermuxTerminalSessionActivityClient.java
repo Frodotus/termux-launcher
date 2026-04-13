@@ -43,6 +43,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     private final TermuxActivity mActivity;
 
     private static final int MAX_SESSIONS = 8;
+    private static final long FOREGROUND_REFRESH_DEFER_MS = 120L;
 
     private SoundPool mBellSoundPool;
 
@@ -51,12 +52,21 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     private static final String LOG_TAG = "TermuxTerminalSessionActivityClient";
     private final Handler mUiHandler = new Handler(Looper.getMainLooper());
     private boolean mTerminalScreenUpdatePending;
+    private boolean mForegroundRefreshPending;
     private final Runnable mTerminalScreenUpdateRunnable;
+    private final Runnable mForegroundTerminalRefreshRunnable;
 
     public TermuxTerminalSessionActivityClient(TermuxActivity activity) {
         this.mActivity = activity;
         this.mTerminalScreenUpdateRunnable = () -> {
             mTerminalScreenUpdatePending = false;
+            if (!mActivity.isVisible()) return;
+            if (mActivity.getCurrentSession() != null) {
+                mActivity.getTerminalView().onScreenUpdated();
+            }
+        };
+        this.mForegroundTerminalRefreshRunnable = () -> {
+            mForegroundRefreshPending = false;
             if (!mActivity.isVisible()) return;
             if (mActivity.getCurrentSession() != null) {
                 mActivity.getTerminalView().onScreenUpdated();
@@ -83,9 +93,11 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             setCurrentSession(getCurrentStoredSessionOrLast());
             termuxSessionListNotifyUpdated();
         }
-        // The current terminal session may have changed while being away, force
-        // a refresh of the displayed terminal.
-        mActivity.getTerminalView().onScreenUpdated();
+        if (shouldDeferForegroundScreenRefresh()) {
+            scheduleDeferredForegroundRefresh();
+        } else {
+            mActivity.getTerminalView().onScreenUpdated();
+        }
     }
 
     /**
@@ -111,7 +123,16 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         // Related: https://stackoverflow.com/a/28708351/14686958
         releaseBellSoundPool();
         mTerminalScreenUpdatePending = false;
+        mForegroundRefreshPending = false;
         mUiHandler.removeCallbacks(mTerminalScreenUpdateRunnable);
+        mUiHandler.removeCallbacks(mForegroundTerminalRefreshRunnable);
+    }
+
+    public void onImeVisibilityChanged(boolean visible) {
+        if (visible && mForegroundRefreshPending) {
+            mUiHandler.removeCallbacks(mForegroundTerminalRefreshRunnable);
+            mForegroundTerminalRefreshRunnable.run();
+        }
     }
 
     public void onReloadActivityStyling() {
@@ -123,12 +144,30 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void onTextChanged(@NonNull TerminalSession changedSession) {
         if (!mActivity.isVisible())
             return;
+        if (mForegroundRefreshPending)
+            return;
         if (mActivity.getCurrentSession() != changedSession)
             return;
         if (mTerminalScreenUpdatePending)
             return;
         mTerminalScreenUpdatePending = true;
         mUiHandler.post(mTerminalScreenUpdateRunnable);
+    }
+
+    private boolean shouldDeferForegroundScreenRefresh() {
+        if (!mActivity.isUsingCustomSoftKeyboardBehavior())
+            return false;
+        if (mActivity.isOnResumeAfterOnCreate() || mActivity.isActivityRecreated())
+            return false;
+        if (mActivity.isImeVisibleForLayout())
+            return false;
+        return mActivity.getPreferences().isSoftKeyboardEnabled();
+    }
+
+    private void scheduleDeferredForegroundRefresh() {
+        mForegroundRefreshPending = true;
+        mUiHandler.removeCallbacks(mForegroundTerminalRefreshRunnable);
+        mUiHandler.postDelayed(mForegroundTerminalRefreshRunnable, FOREGROUND_REFRESH_DEFER_MS);
     }
 
     @Override
