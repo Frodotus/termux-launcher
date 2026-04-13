@@ -43,13 +43,24 @@ If you use the tmux status helpers, see [tooie](https://github.com/PickleHik3/to
 
 ## Screenshots
 
-| Home | tooie / system view | Pacman in filtered app bar |
-| --- | --- | --- |
-| ![Home screen](screenshots/01-home.png) | ![tooie system view](screenshots/02-tooie-system.png) | ![Pacman with filtered app bar](screenshots/03-pacman-search.png) |
-
-| Main settings | Look and feel | Apps bar settings |
-| --- | --- | --- |
-| ![Launcher settings](screenshots/04-settings-home.png) | ![Look and feel settings](screenshots/05-look-and-feel.png) | ![Apps bar settings](screenshots/06-apps-bar-settings.png) |
+<table>
+  <tr>
+    <td><img src="screenshots/01-home.png" alt="Screenshot 1" width="320"></td>
+    <td><img src="screenshots/02-terminal-status.png" alt="Screenshot 2" width="320"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/03-apps-bar.png" alt="Screenshot 3" width="320"></td>
+    <td><img src="screenshots/04-settings-home.png" alt="Screenshot 4" width="320"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/05-look-and-feel.png" alt="Screenshot 5" width="320"></td>
+    <td><img src="screenshots/06-apps-bar-settings.png" alt="Screenshot 6" width="320"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/07-terminal-overlay.png" alt="Screenshot 7" width="320"></td>
+    <td><img src="screenshots/08-light-theme.png" alt="Screenshot 8" width="320"></td>
+  </tr>
+</table>
 
 ## Known Limitations
 
