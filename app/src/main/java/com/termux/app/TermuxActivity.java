@@ -745,7 +745,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (isNightThemeActive()) {
             return getTermuxThemeColor(com.termux.shared.R.attr.termuxColorSurfaceBase, R.color.termux_surface_base);
         }
-        return ContextCompat.getColor(this, R.color.termux_terminal_overlay_surface);
+        return Color.parseColor("#1C1B1F");
     }
 
     private int resolveTerminalSurfaceColor() {
