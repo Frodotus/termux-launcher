@@ -229,8 +229,8 @@
 
                 <!-- Terminal View Activity Remove Task -->
                 <string name="termux_terminal_view_activity_remove_title">Show in recent apps when not Home app</string>
-                <string name="termux_terminal_view_activity_remove_off">&TERMUX_APP_NAME; will stay hidden from recent apps.</string>
-                <string name="termux_terminal_view_activity_remove_on">&TERMUX_APP_NAME; will appear in recent apps when it is not default Home, and stay hidden when it is default Home. (Default)</string>
+                <string name="termux_terminal_view_activity_remove_off">&TERMUX_APP_NAME; will stay hidden from recent apps. Applies when you return to the launcher.</string>
+                <string name="termux_terminal_view_activity_remove_on">&TERMUX_APP_NAME; will appear in recent apps when it is not default Home, and stay hidden when it is default Home. Applies when you return to the launcher. (Default)</string>
 
 
         <!-- Termux Style Preferences -->
