@@ -622,6 +622,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mTermuxTerminalViewClient.onResume();
         maybeRecoverFromEmptySession("onResume");
 
+        applySuggestionBarPreferences();
         updateWindowBackgroundForCurrentSession();
         syncTerminalWallpaperRenderingMode();
         applySeamlessStatusBackgroundModeIfNeeded();

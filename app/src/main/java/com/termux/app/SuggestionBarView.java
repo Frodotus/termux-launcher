@@ -312,7 +312,9 @@ public final class SuggestionBarView extends GridLayout {
     }
 
     public void setBandW(boolean bandW) {
+        if (this.bandW == bandW) return;
         this.bandW = bandW;
+        lastSurfaceRenderSignature = 0;
     }
 
     public void setSearchTolerance(int searchTolerance) {
@@ -1382,6 +1384,7 @@ public final class SuggestionBarView extends GridLayout {
         int signature = 17;
         signature = (31 * signature) + (azPreview ? 1 : 0);
         signature = (31 * signature) + (pinnedSurface ? 1 : 0);
+        signature = (31 * signature) + (bandW ? 1 : 0);
         signature = (31 * signature) + Math.max(1, buttonCount);
         signature = (31 * signature) + pinnedPageIndex;
         signature = (31 * signature) + activeAzPageIndex;
@@ -1486,6 +1489,8 @@ public final class SuggestionBarView extends GridLayout {
             };
             ColorFilter colorFilter = new ColorMatrixColorFilter(colorMatrix);
             imageButton.setColorFilter(colorFilter);
+        } else {
+            icon.clearColorFilter();
         }
         imageButton.setOnClickListener(v -> launchEntryFromTouch(v, entry, lastTerminalView));
         imageButton.setContentDescription(entry.label);
@@ -4335,6 +4340,8 @@ public final class SuggestionBarView extends GridLayout {
                 0, 0, 0, 1, 0
             };
             button.setColorFilter(new ColorMatrixColorFilter(colorMatrix));
+        } else {
+            icon.clearColorFilter();
         }
         button.setOnClickListener(v -> launchEntryFromTouch(v, entry, lastTerminalView));
         bindAppContextLongPress(button, entry, -1, sourceFolder, resolveForSelectionRef(entry.appRef), false);
