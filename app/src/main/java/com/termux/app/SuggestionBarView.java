@@ -133,6 +133,7 @@ public final class SuggestionBarView extends GridLayout {
     private LauncherAppDataProvider appDataProvider;
     private LauncherConfigRepository configRepository;
     private List<PinnedItem> pinnedItems = new ArrayList<>();
+    private List<String> propertyPinnedLabels = null;
     private List<SuggestionBarButton> injectedSuggestionButtons;
 
     private PopupWindow folderPopupWindow;
@@ -326,6 +327,11 @@ public final class SuggestionBarView extends GridLayout {
         this.hiddenAppLabels = hiddenApps;
     }
 
+    public void setPropertyPinnedApps(@Nullable java.util.List<String> labels) {
+        this.propertyPinnedLabels = labels;
+        this.pinnedItems = new ArrayList<>();
+    }
+
     public void setIconScale(float iconScale) {
         this.iconScale = iconScale;
     }
@@ -507,6 +513,7 @@ public final class SuggestionBarView extends GridLayout {
      * This prevents stale "ghost" pinned slots after apps are uninstalled.
      */
     private void pruneUnavailablePinnedItems() {
+        if (propertyPinnedLabels != null) return;
         if (configRepository == null || pinnedItems == null || pinnedItems.isEmpty() || allApps == null || allApps.isEmpty()) {
             return;
         }
@@ -1143,6 +1150,10 @@ public final class SuggestionBarView extends GridLayout {
     }
 
     private List<LauncherAppEntry> buildPinnedOrDefaultSurface() {
+        if (propertyPinnedLabels != null) {
+            pinnedItems = pinnedItemsFromLabels(propertyPinnedLabels);
+            return pinnedItems.isEmpty() ? new ArrayList<>() : entriesForPinnedItems(pinnedItems);
+        }
         if (configRepository != null) {
             if (pinnedItems == null || pinnedItems.isEmpty()) {
                 pinnedItems = configRepository.loadPinnedItems();
@@ -1152,6 +1163,22 @@ public final class SuggestionBarView extends GridLayout {
             }
         }
         return new ArrayList<>();
+    }
+
+    private List<PinnedItem> pinnedItemsFromLabels(@NonNull java.util.List<String> labels) {
+        List<PinnedItem> out = new ArrayList<>();
+        if (appDataProvider == null || !appDataProvider.hasLoadedApps()) return out;
+        List<LauncherAppEntry> apps = appDataProvider.getAllApps();
+        for (String label : labels) {
+            String lower = label.toLowerCase(java.util.Locale.US);
+            for (LauncherAppEntry app : apps) {
+                if (app.label != null && app.label.toLowerCase(java.util.Locale.US).equals(lower)) {
+                    out.add(new PinnedAppItem(app.appRef));
+                    break;
+                }
+            }
+        }
+        return out;
     }
 
     private void renderButtons(@NonNull List<LauncherAppEntry> entries, boolean azPreview) {

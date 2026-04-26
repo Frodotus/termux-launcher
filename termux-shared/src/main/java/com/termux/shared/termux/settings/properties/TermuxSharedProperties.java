@@ -2,6 +2,7 @@ package com.termux.shared.termux.settings.properties;
 
 import android.content.Context;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.data.DataUtils;
 import com.termux.shared.settings.properties.SharedProperties;
@@ -275,6 +276,8 @@ public abstract class TermuxSharedProperties {
             case TermuxPropertyConstants.KEY_DEFAULT_WORKING_DIRECTORY:
                 return (String) getDefaultWorkingDirectoryInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_APP_LAUNCHER_HIDDEN_APPS:
+                return value != null ? value : "";
+            case TermuxPropertyConstants.KEY_APP_LAUNCHER_PINNED_APPS:
                 return value != null ? value : "";
             case TermuxPropertyConstants.KEY_APP_LAUNCHER_SEARCH_MODE:
                 return (String) getAppLauncherSearchModeInternalPropertyValueFromValue(value);
@@ -761,6 +764,18 @@ public abstract class TermuxSharedProperties {
             if (!label.isEmpty()) result.add(label);
         }
         return result;
+    }
+
+    @Nullable
+    public List<String> getAppLauncherPinnedApps() {
+        String raw = (String) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_PINNED_APPS, true);
+        if (raw == null || raw.trim().isEmpty()) return null;
+        List<String> result = new java.util.ArrayList<>();
+        for (String part : raw.split(",")) {
+            String label = part.trim();
+            if (!label.isEmpty()) result.add(label);
+        }
+        return result.isEmpty() ? null : result;
     }
 
     public void dumpPropertiesToLog() {

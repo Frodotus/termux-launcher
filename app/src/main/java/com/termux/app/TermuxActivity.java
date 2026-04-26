@@ -1871,6 +1871,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSuggestionBarView.setTextSize(10f);
         mSuggestionBarView.setSearchTolerance(mProperties != null ? mProperties.getAppLauncherSearchTolerance() : 70);
         mSuggestionBarView.setHiddenApps(mProperties != null ? mProperties.getAppLauncherHiddenApps() : new java.util.HashSet<>());
+        mSuggestionBarView.setPropertyPinnedApps(mProperties != null ? mProperties.getAppLauncherPinnedApps() : null);
         mSuggestionBarView.setBandW(mProperties != null && mProperties.isAppLauncherBwIconsEnabled());
         mSuggestionBarView.setIconScale(resolveDerivedDockIconScale());
         mSuggestionBarView.setDockRowHeightHintPx(buildDockLayoutMetrics(0).appsBarHeightPx);
