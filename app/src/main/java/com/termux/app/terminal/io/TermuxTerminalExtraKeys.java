@@ -91,6 +91,8 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
             TerminalView terminalView = mTermuxTerminalViewClient.getActivity().getTerminalView();
             if (terminalView != null && terminalView.mEmulator != null)
                 terminalView.mEmulator.toggleAutoScrollDisabled();
+        } else if ("APPBAR".equals(key)) {
+            mTermuxTerminalViewClient.getActivity().toggleAppBar();
         } else {
             super.onTerminalExtraKeyButtonClick(view, key, ctrlDown, altDown, shiftDown, fnDown);
         }

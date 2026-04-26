@@ -87,6 +87,16 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         return !currentValue;
     }
 
+    public boolean isAppBarVisible() {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_BAR_VISIBLE, TERMUX_APP.DEFAULT_VALUE_APP_BAR_VISIBLE);
+    }
+
+    public boolean toggleAppBarVisible() {
+        boolean newValue = !isAppBarVisible();
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_BAR_VISIBLE, newValue, false);
+        return newValue;
+    }
+
     public String getAppLauncherDefaultButtons() {
         return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_DEFAULT_BUTTONS, TERMUX_APP.DEFAULT_APP_LAUNCHER_DEFAULT_BUTTONS, true);
     }

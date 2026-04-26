@@ -114,6 +114,10 @@ public final class TermuxPreferenceConstants {
 
         public static final boolean DEFAULT_VALUE_SHOW_TERMINAL_TOOLBAR = true;
 
+        public static final String KEY_APP_BAR_VISIBLE = "app_bar_visible";
+
+        public static final boolean DEFAULT_VALUE_APP_BAR_VISIBLE = true;
+
         /**
          * Defines the key for app launcher default buttons (legacy, kept for migration only).
          */

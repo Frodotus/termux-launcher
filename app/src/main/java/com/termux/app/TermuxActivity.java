@@ -908,13 +908,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private static final class AccessoryRenderState {
         final boolean toolbarShown;
+        final boolean appBarShown;
         final boolean blurEnabled;
         final boolean azRowEnabled;
         final float barAlpha;
         final int blurRadiusDp;
 
-        AccessoryRenderState(boolean toolbarShown, boolean blurEnabled, boolean azRowEnabled, float barAlpha, int blurRadiusDp) {
+        AccessoryRenderState(boolean toolbarShown, boolean appBarShown, boolean blurEnabled, boolean azRowEnabled, float barAlpha, int blurRadiusDp) {
             this.toolbarShown = toolbarShown;
+            this.appBarShown = appBarShown;
             this.blurEnabled = blurEnabled;
             this.azRowEnabled = azRowEnabled;
             this.barAlpha = barAlpha;
@@ -948,10 +950,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @NonNull
     private AccessoryRenderState buildAccessoryRenderState() {
         if (mPreferences == null) {
-            return new AccessoryRenderState(false, false, false, 1.0f, 0);
+            return new AccessoryRenderState(false, true, false, false, 1.0f, 0);
         }
         return new AccessoryRenderState(
             mPreferences.shouldShowTerminalToolbar(),
+            mPreferences.isAppBarVisible(),
             mPreferences.getExtraKeysBlurRadius() > 0,
             mProperties != null && mProperties.isAppLauncherAzRowEnabled(),
             mPreferences.getAppBarOpacity() / 100f,
@@ -1259,16 +1262,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             accessorySurfaceHost.setVisibility(View.VISIBLE);
         }
         if (appsBarViewPager != null) {
-            appsBarViewPager.setVisibility(View.VISIBLE);
+            appsBarViewPager.setVisibility(state.appBarShown ? View.VISIBLE : View.GONE);
         }
         if (indicatorBand != null) {
-            indicatorBand.setVisibility(state.azRowEnabled ? View.VISIBLE : View.GONE);
+            indicatorBand.setVisibility(state.appBarShown && state.azRowEnabled ? View.VISIBLE : View.GONE);
         }
         if (terminalToolbarViewPager != null) {
             terminalToolbarViewPager.setVisibility(View.VISIBLE);
         }
         if (azRow != null) {
-            azRow.setVisibility(state.azRowEnabled ? View.VISIBLE : View.GONE);
+            azRow.setVisibility(state.appBarShown && state.azRowEnabled ? View.VISIBLE : View.GONE);
         }
         if (azFxUnderlay != null) {
             azFxUnderlay.setVisibility(View.GONE);
@@ -2649,8 +2652,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         float density = getResources().getDisplayMetrics().density;
         float barHeightScale = mProperties.getAppLauncherBarHeightScale();
         float normalizedScale = Math.max(0f, Math.min(1f, (barHeightScale - 1.45f) / (2.18f - 1.45f)));
-        int appsBarHeightPx = Math.max(0,
-            Math.round(getDockBaseToolbarHeightPx() * (1.08f + (normalizedScale * 0.30f))) + Math.max(0, additionalAppsBarHeightPx));
+        boolean appBarVisible = mPreferences == null || mPreferences.isAppBarVisible();
+        int appsBarHeightPx = appBarVisible ? Math.max(0,
+            Math.round(getDockBaseToolbarHeightPx() * (1.08f + (normalizedScale * 0.30f))) + Math.max(0, additionalAppsBarHeightPx)) : 0;
 
         boolean azEnabled = mProperties.isAppLauncherAzRowEnabled();
         int azRowHeightPx = 0;
@@ -2682,6 +2686,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mSuggestionBarView != null) {
             mSuggestionBarView.setDockRowHeightHintPx(metrics.appsBarHeightPx);
         }
+    }
+
+    public void toggleAppBar() {
+        mPreferences.toggleAppBarVisible();
+        setTerminalToolbarHeight(true);
+        scheduleAccessoryRenderSync("toggleAppBar");
     }
 
     public void toggleTerminalToolbar() {

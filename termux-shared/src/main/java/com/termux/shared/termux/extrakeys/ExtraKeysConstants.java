@@ -110,6 +110,8 @@ public class ExtraKeysConstants {
                 put("PASTE", "⎘");
                 // U+21F3
                 put("SCROLL", "⇳");
+                // U+2630 ▤ app bar toggle
+                put("APPBAR", "▤");
             }
         };
 
