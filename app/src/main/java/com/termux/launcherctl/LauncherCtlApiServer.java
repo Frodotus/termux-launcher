@@ -75,6 +75,8 @@ public class LauncherCtlApiServer {
     private static final String CONFIG_FILE_PATH = LAUNCHERCTL_DIR_PATH + "/config.json";
     private static final String LAUNCHERCTL_BIN_PATH = TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + "/launcherctl";
     private static final String LAUNCHER_RESTART_BIN_PATH = TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH + "/launcher-restart";
+    private static final String SYSTEM_BASHRC_PATH = TermuxConstants.TERMUX_ETC_PREFIX_DIR_PATH + "/bash.bashrc";
+    private static final String SYSTEM_BASHRC_ALIASES_MARKER = "launcherctl aliases";
 
     private static final int MAX_REQUEST_LINE_BYTES = 4096;
     private static final int MAX_HEADER_LINE_BYTES = 4096;
@@ -239,6 +241,8 @@ public class LauncherCtlApiServer {
                 return jsonResponse(buildStatus());
             } else if ("GET".equals(request.method) && "/v1/apps".equals(request.path)) {
                 return jsonResponse(buildApps(context));
+            } else if ("GET".equals(request.method) && "/v1/apps/aliases".equals(request.path)) {
+                return buildAppAliasesResponse(context);
             } else if ("GET".equals(request.method) && isAppIconPath(request.path)) {
                 return buildAppIconResponse(context, extractPackageNameFromIconPath(request.path));
             } else if ("GET".equals(request.method) && "/v1/system/resources".equals(request.path)) {
@@ -349,6 +353,25 @@ public class LauncherCtlApiServer {
             cachedAppsResponse = new JSONObject(data.toString());
         }
         return data;
+    }
+
+    private HttpResponse buildAppAliasesResponse(Context context) {
+        List<LauncherAppEntry> apps = LauncherAppDataProvider.getInstance(context).getAllAppsBlocking();
+        StringBuilder sb = new StringBuilder();
+        for (LauncherAppEntry app : apps) {
+            String aliasName = normalizeAppLabelToAliasName(app.label);
+            if (aliasName.isEmpty()) continue;
+            sb.append("alias '").append(aliasName).append("'='launcherctl launch ").append(aliasName).append("'\n");
+        }
+        return new HttpResponse(200, "text/plain; charset=utf-8",
+            sb.toString().getBytes(StandardCharsets.UTF_8), null);
+    }
+
+    private static String normalizeAppLabelToAliasName(String label) {
+        if (label == null || label.isEmpty()) return "";
+        String lower = label.toLowerCase(Locale.ENGLISH);
+        String hyphenated = lower.replaceAll("[^a-z0-9]+", "-");
+        return hyphenated.replaceAll("^-+|-+$", "");
     }
 
     private JSONObject buildSystemResources(Context context) throws JSONException {
@@ -840,6 +863,7 @@ public class LauncherCtlApiServer {
         rateLimiters.clear();
         rateLimiters.put("GET:/v1/status", new SimpleRateLimiter(120, 60_000));
         rateLimiters.put("GET:/v1/apps", new SimpleRateLimiter(60, 60_000));
+        rateLimiters.put("GET:/v1/apps/aliases", new SimpleRateLimiter(10, 60_000));
         rateLimiters.put("GET:/v1/apps/icon/*", new SimpleRateLimiter(120, 60_000));
         rateLimiters.put("GET:/v1/system/resources", new SimpleRateLimiter(120, 60_000));
         rateLimiters.put("GET:/v1/media/now-playing", new SimpleRateLimiter(120, 60_000));
@@ -938,8 +962,17 @@ public class LauncherCtlApiServer {
             "  launch)\n" +
             "    [ \"$#\" -gt 0 ] || { echo \"usage: launcherctl launch <app name or package>\" >&2; exit 2; }\n" +
             "    CMD_ESCAPED=$(json_escape \"$*\")\n" +
-            "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" \\\n" +
-            "      --data \"{\\\"query\\\":\\\"$CMD_ESCAPED\\\"}\" \"$BASE/v1/apps/launch\"\n" +
+            "    _resp=$(curl -sS --connect-timeout 2 --max-time 10 -w '\\n%{http_code}' -X POST \\\n" +
+            "      -H \"Authorization: Bearer $TOKEN\" -H \"Content-Type: application/json\" \\\n" +
+            "      --data \"{\\\"query\\\":\\\"$CMD_ESCAPED\\\"}\" \"$BASE/v1/apps/launch\" 2>&1) || { echo \"launcherctl: connection failed\" >&2; exit 1; }\n" +
+            "    _code=$(printf '%s' \"$_resp\" | tail -1)\n" +
+            "    _body=$(printf '%s' \"$_resp\" | head -n -1)\n" +
+            "    if [ \"$_code\" = \"200\" ]; then\n" +
+            "      exit 0\n" +
+            "    else\n" +
+            "      _msg=$(printf '%s' \"$_body\" | sed 's/.*\"message\":\"\\([^\"]*\\)\".*/\\1/' 2>/dev/null)\n" +
+            "      echo \"launcherctl: ${_msg:-launch failed}\" >&2; exit 1\n" +
+            "    fi\n" +
             "    ;;\n" +
             "  resources)\n" +
             "    curl $CURL_COMMON -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/system/resources\"\n" +
@@ -973,13 +1006,16 @@ public class LauncherCtlApiServer {
             "  tty-doctor)\n" +
             "    tty_doctor\n" +
             "    ;;\n" +
+            "  aliases)\n" +
+            "    curl $CURL_COMMON -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/apps/aliases\"\n" +
+            "    ;;\n" +
             "  token)\n" +
             "    sub=\"${1:-}\"; shift || true\n" +
             "    [ \"$sub\" = \"rotate\" ] || { echo \"usage: launcherctl token rotate\" >&2; exit 2; }\n" +
             "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/auth/rotate\"\n" +
             "    ;;\n" +
             "  *)\n" +
-            "    echo \"usage: launcherctl {status|apps|launch|resources|media|art|notifications|exec|restart|reset-ranking|tty-exec|tty-doctor|token rotate}\" >&2\n" +
+            "    echo \"usage: launcherctl {status|apps|aliases|launch|resources|media|art|notifications|exec|restart|reset-ranking|tty-exec|tty-doctor|token rotate}\" >&2\n" +
             "    exit 2\n" +
             "    ;;\n" +
             "esac\n";
@@ -993,6 +1029,28 @@ public class LauncherCtlApiServer {
             }
         } catch (Exception e) {
             Logger.logErrorExtended(LOG_TAG, "Failed to install launcherctl cli: " + e.getMessage());
+        }
+        ensureSystemBashrcAliasesLine();
+    }
+
+    private void ensureSystemBashrcAliasesLine() {
+        try {
+            File bashrc = new File(SYSTEM_BASHRC_PATH);
+            String existing = "";
+            if (bashrc.exists()) {
+                try (FileInputStream fis = new FileInputStream(bashrc)) {
+                    byte[] buf = new byte[(int) Math.min(bashrc.length(), 65536)];
+                    int len = fis.read(buf);
+                    existing = len > 0 ? new String(buf, 0, len, StandardCharsets.UTF_8) : "";
+                }
+            }
+            if (existing.contains(SYSTEM_BASHRC_ALIASES_MARKER)) return;
+            String append = "\n# App launcher aliases (managed by Termux:Launcher)\neval \"$(launcherctl aliases 2>/dev/null)\"\n";
+            try (FileOutputStream fos = new FileOutputStream(bashrc, true)) {
+                fos.write(append.getBytes(StandardCharsets.UTF_8));
+            }
+        } catch (Exception e) {
+            Logger.logErrorExtended(LOG_TAG, "Failed to update system bashrc: " + e.getMessage());
         }
     }
 

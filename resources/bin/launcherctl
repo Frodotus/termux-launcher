@@ -19,6 +19,7 @@ Commands:
   exec <command>            Run policy-allowed command via /v1/exec.
   restart                   Restart the launcher through authenticated API.
   reset-ranking             Reset app usage ranking to start fresh.
+  aliases                   Print bash aliases for all installed apps.
   tty-exec <command>        Run interactive command via ~/.rish/rish.
   tty-doctor                Validate local rish setup and print fixes.
   token rotate              Rotate LauncherCtl API auth token.
@@ -26,6 +27,8 @@ Commands:
 Examples:
   launcherctl status
   launcherctl apps
+  launcherctl aliases
+  eval "$(launcherctl aliases)"
   launcherctl exec "id"
   launcherctl restart
   launcherctl tty-doctor
@@ -183,6 +186,21 @@ case "$cmd" in
   apps)
     curl $CURL_COMMON -H "Authorization: Bearer $TOKEN" "$BASE/v1/apps"
     ;;
+  launch)
+    [ "$#" -gt 0 ] || { echo "usage: launcherctl launch <app name or package>" >&2; exit 2; }
+    CMD_ESCAPED=$(json_escape "$*")
+    _resp=$(curl -sS --connect-timeout 2 --max-time 10 -w '\n%{http_code}' -X POST \
+      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+      --data "{\"query\":\"$CMD_ESCAPED\"}" "$BASE/v1/apps/launch" 2>&1) || { echo "launcherctl: connection failed" >&2; exit 1; }
+    _code=$(printf '%s' "$_resp" | tail -1)
+    _body=$(printf '%s' "$_resp" | head -n -1)
+    if [ "$_code" = "200" ]; then
+      exit 0
+    else
+      _msg=$(printf '%s' "$_body" | sed 's/.*"message":"\([^"]*\)".*/\1/' 2>/dev/null)
+      echo "launcherctl: ${_msg:-launch failed}" >&2; exit 1
+    fi
+    ;;
   resources)
     curl $CURL_COMMON -H "Authorization: Bearer $TOKEN" "$BASE/v1/system/resources"
     ;;
@@ -214,6 +232,9 @@ case "$cmd" in
     ;;
   tty-doctor)
     tty_doctor
+    ;;
+  aliases)
+    curl $CURL_COMMON -H "Authorization: Bearer $TOKEN" "$BASE/v1/apps/aliases"
     ;;
   token)
     sub="${1:-}"; shift || true
