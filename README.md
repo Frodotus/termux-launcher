@@ -1,18 +1,6 @@
 # Termux Launcher
 
-As a long-time user of Termux Expert Launcher [TEL](https://github.com/t-e-l/tel), I wanted a version of it with sixel image drawing support inside the terminal. I am not a programmer, but I really like TUIs and keyboard-based workflows, so I set out to vibe-code a TEL-style launcher suited to my needs.
-
-The initial idea was just to add sixel support, but it was not a straightforward task since TEL has not been updated in a while. That led me to [termux-monet](https://github.com/Termux-Monet/termux-monet), which already had sixel and iTerm-style terminal drawing, wallpaper support, and Material theming.
-
-What followed was months of vibe coding with Codex CLI inside Termux itself. The first two weeks were frustrating, to say the least, while I figured out how to work with AI. GPT-5.3 had an annoying tendency to reduce or redefine the scope of the project without my confirmation. I think I forked `termux-monet` three times before I reached a stable base that was moving in the right direction.
-
-The release of Codex 5.3 happened around the time I finally had the base in a working state. It is still my favorite model because it tends to just do what you ask it to.
-
-Features were added one by one. The codebase likely has plenty of debt from all the vibe coding, but this project is still a prototype of the launcher I wanted to exist. I hope the idea is interesting enough that a real developer eventually takes it and builds it properly. Especially now, with the tools available, there is a lot of room for genuinely neat TUI experiences on Android.
-
-That is enough background. Here is what the launcher actually is:
-
-Termux Launcher is a terminal-first Android launcher heavily inspired by [TEL](https://github.com/t-e-l/tel). It was first forked from [termux-monet](https://github.com/Termux-Monet/termux-monet) because that project already had sixel support along with wallpaper and Material theming. After that, it was rebased onto [termux-app](https://github.com/termux/termux-app) and the sixel-related commits were pulled in from upstream.
+Termux Launcher is a terminal-first Android launcher heavily inspired by [TEL](https://github.com/t-e-l/tel). It was forked from [PickleHik3/termux-launcher](https://github.com/PickleHik3/termux-launcher), which was originally built on top of [termux-monet](https://github.com/Termux-Monet/termux-monet) for its sixel support, wallpaper integration, and Material theming, and later rebased onto [termux-app](https://github.com/termux/termux-app).
 
 It keeps the full Termux session front and center, and adds an apps row plus an alphabet row with the following features:
 
