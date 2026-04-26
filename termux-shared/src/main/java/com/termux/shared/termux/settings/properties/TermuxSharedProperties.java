@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.HashSet;
 import java.util.Set;
 
 public abstract class TermuxSharedProperties {
@@ -273,6 +274,8 @@ public abstract class TermuxSharedProperties {
                 return (String) getBackKeyBehaviourInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_DEFAULT_WORKING_DIRECTORY:
                 return (String) getDefaultWorkingDirectoryInternalPropertyValueFromValue(value);
+            case TermuxPropertyConstants.KEY_APP_LAUNCHER_HIDDEN_APPS:
+                return value != null ? value : "";
             case TermuxPropertyConstants.KEY_EXTRA_KEYS:
                 return (String) getExtraKeysInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_EXTRA_KEYS2:
@@ -662,6 +665,17 @@ public abstract class TermuxSharedProperties {
 
     public boolean areVirtualVolumeKeysDisabled() {
         return (boolean) TermuxPropertyConstants.IVALUE_VOLUME_KEY_BEHAVIOUR_VOLUME.equals(getInternalPropertyValue(TermuxPropertyConstants.KEY_VOLUME_KEYS_BEHAVIOUR, true));
+    }
+
+    public Set<String> getAppLauncherHiddenApps() {
+        String raw = (String) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_HIDDEN_APPS, true);
+        Set<String> result = new HashSet<>();
+        if (raw == null || raw.trim().isEmpty()) return result;
+        for (String part : raw.split(",")) {
+            String label = part.trim().toLowerCase(java.util.Locale.US);
+            if (!label.isEmpty()) result.add(label);
+        }
+        return result;
     }
 
     public void dumpPropertiesToLog() {

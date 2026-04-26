@@ -118,6 +118,7 @@ public final class SuggestionBarView extends GridLayout {
     private float textSize = 12f;
     private boolean bandW = false;
     private int searchTolerance = 70;
+    private Set<String> hiddenAppLabels = new HashSet<>();
     private float iconScale = 1.0f;
     private int appBarOpacity = 80;
     private boolean blurEnabled = false;
@@ -319,6 +320,10 @@ public final class SuggestionBarView extends GridLayout {
 
     public void setSearchTolerance(int searchTolerance) {
         this.searchTolerance = searchTolerance;
+    }
+
+    public void setHiddenApps(@NonNull Set<String> hiddenApps) {
+        this.hiddenAppLabels = hiddenApps;
     }
 
     public void setIconScale(float iconScale) {
@@ -1110,6 +1115,9 @@ public final class SuggestionBarView extends GridLayout {
         String trimmed = lastInput.trim();
         if (!trimmed.isEmpty()) {
             final List<LauncherAppEntry> snapshot = new ArrayList<>(allApps);
+            if (!hiddenAppLabels.isEmpty()) {
+                snapshot.removeIf(e -> e.label != null && hiddenAppLabels.contains(e.label.toLowerCase(java.util.Locale.US)));
+            }
             searchExecutor.execute(() -> {
                 List<LauncherAppEntry> suggestionEntries = LauncherRankingEngine.filterAndRank(snapshot, trimmed, searchTolerance);
                 post(() -> {
