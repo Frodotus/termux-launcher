@@ -9,6 +9,12 @@
         app:entries="@array/app_launcher_search_mode_entries"
         app:entryValues="@array/app_launcher_search_mode_values" />
 
+    <SwitchPreferenceCompat
+        app:key="app_launcher_always_search"
+        app:title="@string/termux_app_launcher_always_search_title"
+        app:summary="@string/termux_app_launcher_always_search_summary"
+        android:defaultValue="false" />
+
     <EditTextPreference
         app:key="app_launcher_input_char"
         app:title="@string/termux_app_launcher_input_char_title"

@@ -145,6 +145,14 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_INPUT_CHAR, value, false);
     }
 
+    public boolean getAppLauncherAlwaysSearch() {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_ALWAYS_SEARCH, TERMUX_APP.DEFAULT_APP_LAUNCHER_ALWAYS_SEARCH);
+    }
+
+    public void setAppLauncherAlwaysSearch(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_ALWAYS_SEARCH, value, false);
+    }
+
     public String getAppLauncherDefaultButtons() {
         return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_DEFAULT_BUTTONS, TERMUX_APP.DEFAULT_APP_LAUNCHER_DEFAULT_BUTTONS, true);
     }

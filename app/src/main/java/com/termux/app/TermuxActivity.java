@@ -1810,6 +1810,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return false;
         }
         if (keyCode == android.view.KeyEvent.KEYCODE_DEL || keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
+            if (mPreferences != null && mPreferences.getAppLauncherAlwaysSearch()) return true;
             return mSuggestionBarExplicitSearchActive || mSuggestionBarView.isSearchSurfaceActive();
         }
         return false;
@@ -1819,6 +1820,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (ctrlDown || mSuggestionBarView == null) {
             return false;
         }
+        if (mPreferences != null && mPreferences.getAppLauncherAlwaysSearch()) return true;
         if (mSuggestionBarExplicitSearchActive || mSuggestionBarView.isSearchSurfaceActive()) {
             return true;
         }
@@ -3359,6 +3361,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         resetAzGestureState(false, true);
         mSuggestionBarView.onTerminalInteraction();
+        if (mPreferences != null && mPreferences.getAppLauncherAlwaysSearch()) {
+            String input = normalizeSuggestionBarInput(mTerminalView.getCurrentInputFromStart());
+            if (!input.isEmpty()) {
+                mSuggestionBarView.reloadWithInput(input, mTerminalView);
+            } else if (mSuggestionBarView.isSearchSurfaceActive()) {
+                mSuggestionBarView.reloadWithInput("", mTerminalView);
+            }
+            return;
+        }
         if (inputChar == getSuggestionBarSplitChar()) {
             mSuggestionBarExplicitSearchActive = true;
         }
@@ -3385,6 +3396,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         resetAzGestureState(false, true);
         mSuggestionBarView.onTerminalInteraction();
+        if (mPreferences != null && mPreferences.getAppLauncherAlwaysSearch()) {
+            if (enter) {
+                if (mSuggestionBarView.isSearchSurfaceActive()) {
+                    mSuggestionBarView.reloadWithInput("", mTerminalView);
+                }
+                return;
+            }
+            String input = normalizeSuggestionBarInput(mTerminalView.getCurrentInputFromStart());
+            if (!input.isEmpty()) {
+                mSuggestionBarView.reloadWithInput(input, mTerminalView);
+            } else if (mSuggestionBarView.isSearchSurfaceActive()) {
+                mSuggestionBarView.reloadWithInput("", mTerminalView);
+            }
+            return;
+        }
         if (enter) {
             mSuggestionBarExplicitSearchActive = false;
             if (mSuggestionBarView.isSearchSurfaceActive()) {

@@ -292,6 +292,8 @@
                 <string name="termux_app_launcher_search_mode_strict">Strict</string>
                 <string name="termux_app_launcher_search_mode_balanced">Balanced</string>
                 <string name="termux_app_launcher_search_mode_loose">Loose</string>
+                <string name="termux_app_launcher_always_search_title">Always search from line start</string>
+                <string name="termux_app_launcher_always_search_summary">Search apps on every keypress using the full terminal line. No split character needed.</string>
                 <string name="termux_app_launcher_input_char_title">Input split character</string>
                 <string name="termux_app_launcher_input_char_summary">Character used to start app search when typing in the terminal. Default: %</string>
                 <string name="termux_app_launcher_default_buttons_title">Default apps</string>

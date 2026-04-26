@@ -143,6 +143,10 @@ public final class TermuxPreferenceConstants {
 
         public static final String DEFAULT_APP_LAUNCHER_INPUT_CHAR = "%";
 
+        public static final String KEY_APP_LAUNCHER_ALWAYS_SEARCH = "app_launcher_always_search";
+
+        public static final boolean DEFAULT_APP_LAUNCHER_ALWAYS_SEARCH = false;
+
         /**
          * Defines the key for app launcher default buttons.
          */

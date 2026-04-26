@@ -765,6 +765,16 @@ public final class TerminalView extends View {
         return null;
     }
 
+    public String getCurrentInputFromStart() {
+        if (mEmulator == null) return null;
+        int row = mEmulator.getCursorRow();
+        String text = mEmulator.getScreen().getSelectedText(0, row, 99, row);
+        if (text == null) return null;
+        text = text.replaceAll("[^a-zA-Z ]", "");
+        text = text.replaceAll(" {2,}", " ");
+        return text.trim();
+    }
+
     public boolean isAlternateBufferActive() {
         return mEmulator != null && mEmulator.isAlternateBufferActive();
     }
