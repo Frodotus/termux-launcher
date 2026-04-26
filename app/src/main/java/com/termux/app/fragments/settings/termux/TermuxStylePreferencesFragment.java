@@ -210,19 +210,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
             case "monet_overlay_enabled":
                 // Legacy compatibility: material overlay is always enabled now.
                 break;
-            case "app_launcher_always_search":
-                mPreferences.setAppLauncherAlwaysSearch(value);
-                break;
-            case "app_launcher_bw_icons":
-                mPreferences.setAppLauncherBwIconsEnabled(value);
-                TermuxActivity.updateTermuxActivityStyling(mContext, false);
-                break;
-            case "app_launcher_az_row_enabled":
-                mPreferences.setAppLauncherAzRowEnabled(value);
-                break;
-            case "app_launcher_az_double_tap_lock":
-                mPreferences.setAppLauncherAzDoubleTapLockEnabled(value);
-                break;
             default:
                 break;
         }
@@ -242,14 +229,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
             case "monet_background_enabled":
             case "monet_overlay_enabled":
                 return true;
-            case "app_launcher_always_search":
-                return mPreferences.getAppLauncherAlwaysSearch();
-            case "app_launcher_bw_icons":
-                return mPreferences.isAppLauncherBwIconsEnabled();
-            case "app_launcher_az_row_enabled":
-                return mPreferences.isAppLauncherAzRowEnabled();
-            case "app_launcher_az_double_tap_lock":
-                return mPreferences.isAppLauncherAzDoubleTapLockEnabled();
             default:
                 return defValue;
         }
@@ -276,20 +255,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
             case "app_bar_opacity":
                 mPreferences.setAppBarOpacity(value);
                 break;
-            case "app_launcher_button_count":
-                mPreferences.setAppLauncherButtonCount(value);
-                TermuxActivity.updateTermuxActivityStyling(mContext, false);
-                break;
-            case "app_launcher_icon_scale_percent":
-                mPreferences.setAppLauncherBarHeightScale(TermuxStylePreferencesFragment.barHeightForPreset(value));
-                mPreferences.setAppLauncherIconScale(TermuxStylePreferencesFragment.iconScaleForPreset(value));
-                TermuxActivity.updateTermuxActivityStyling(mContext, false);
-                break;
-            case "app_launcher_bar_height_percent":
-                mPreferences.setAppLauncherBarHeightScale(TermuxStylePreferencesFragment.barHeightForPreset(value));
-                mPreferences.setAppLauncherIconScale(TermuxStylePreferencesFragment.iconScaleForPreset(value));
-                TermuxActivity.updateTermuxActivityStyling(mContext, false);
-                break;
             default:
                 break;
         }
@@ -310,18 +275,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 return mPreferences.getExtraKeysBlurRadius();
             case "app_bar_opacity":
                 return mPreferences.getAppBarOpacity();
-            case "app_launcher_button_count":
-                return mPreferences.getAppLauncherButtonCount();
-            case "app_launcher_icon_scale_percent":
-                return TermuxStylePreferencesFragment.nearestDockPresetIndex(
-                    mPreferences.getAppLauncherBarHeightScale(),
-                    TermuxStylePreferencesFragment.APP_LAUNCHER_BAR_HEIGHT_PRESETS
-                );
-            case "app_launcher_bar_height_percent":
-                return TermuxStylePreferencesFragment.nearestDockPresetIndex(
-                    mPreferences.getAppLauncherBarHeightScale(),
-                    TermuxStylePreferencesFragment.APP_LAUNCHER_BAR_HEIGHT_PRESETS
-                );
             default:
                 return defValue;
         }
@@ -339,54 +292,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
                 TermuxThemeUtils.setAppNightMode(value);
                 TermuxActivity.requestTermuxActivityStylingOnNextResume(mContext, true);
                 break;
-            case "app_launcher_button_count":
-                mPreferences.setAppLauncherButtonCount(DataUtils.getIntFromString(value, mPreferences.getAppLauncherButtonCount()));
-                break;
-            case "app_launcher_search_mode":
-                mPreferences.setAppLauncherSearchMode(value);
-                break;
-            case "app_launcher_input_char":
-                mPreferences.setAppLauncherInputChar(value);
-                break;
-            case "app_launcher_default_buttons":
-                mPreferences.setAppLauncherDefaultButtons(value);
-                break;
-            case "app_launcher_bar_height":
-                mPreferences.setAppLauncherBarHeightScale(
-                    TermuxStylePreferencesFragment.barHeightForPreset(
-                        TermuxStylePreferencesFragment.nearestDockPresetIndex(
-                            DataUtils.getFloatFromString(value, mPreferences.getAppLauncherBarHeightScale()),
-                            TermuxStylePreferencesFragment.APP_LAUNCHER_BAR_HEIGHT_PRESETS
-                        )
-                    )
-                );
-                mPreferences.setAppLauncherIconScale(
-                    TermuxStylePreferencesFragment.iconScaleForPreset(
-                        TermuxStylePreferencesFragment.nearestDockPresetIndex(
-                            DataUtils.getFloatFromString(value, mPreferences.getAppLauncherBarHeightScale()),
-                            TermuxStylePreferencesFragment.APP_LAUNCHER_BAR_HEIGHT_PRESETS
-                        )
-                    )
-                );
-                break;
-            case "app_launcher_icon_scale":
-                mPreferences.setAppLauncherBarHeightScale(
-                    TermuxStylePreferencesFragment.barHeightForPreset(
-                        TermuxStylePreferencesFragment.nearestDockPresetIndex(
-                            DataUtils.getFloatFromString(value, mPreferences.getAppLauncherIconScale()),
-                            TermuxStylePreferencesFragment.APP_LAUNCHER_ICON_SCALE_PRESETS
-                        )
-                    )
-                );
-                mPreferences.setAppLauncherIconScale(
-                    TermuxStylePreferencesFragment.iconScaleForPreset(
-                        TermuxStylePreferencesFragment.nearestDockPresetIndex(
-                            DataUtils.getFloatFromString(value, mPreferences.getAppLauncherIconScale()),
-                            TermuxStylePreferencesFragment.APP_LAUNCHER_ICON_SCALE_PRESETS
-                        )
-                    )
-                );
-                break;
             default:
                 break;
         }
@@ -401,18 +306,6 @@ class TermuxStylePreferencesDataStore extends PreferenceDataStore {
         switch (key) {
             case "theme_mode":
                 return TermuxSharedProperties.getNightMode(mContext);
-            case "app_launcher_button_count":
-                return Integer.toString(mPreferences.getAppLauncherButtonCount());
-            case "app_launcher_search_mode":
-                return mPreferences.getAppLauncherSearchMode();
-            case "app_launcher_input_char":
-                return mPreferences.getAppLauncherInputChar();
-            case "app_launcher_default_buttons":
-                return mPreferences.getAppLauncherDefaultButtons();
-            case "app_launcher_bar_height":
-                return Float.toString(mPreferences.getAppLauncherBarHeightScale());
-            case "app_launcher_icon_scale":
-                return Float.toString(mPreferences.getAppLauncherBarHeightScale());
             default:
                 return defValue;
         }

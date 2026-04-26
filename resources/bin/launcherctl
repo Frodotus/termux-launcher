@@ -18,6 +18,7 @@ Commands:
   notifications             Get active notifications snapshot.
   exec <command>            Run policy-allowed command via /v1/exec.
   restart                   Restart the launcher through authenticated API.
+  reset-ranking             Reset app usage ranking to start fresh.
   tty-exec <command>        Run interactive command via ~/.rish/rish.
   tty-doctor                Validate local rish setup and print fixes.
   token rotate              Rotate LauncherCtl API auth token.
@@ -202,6 +203,9 @@ case "$cmd" in
     ;;
   restart)
     curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" "$BASE/v1/app/restart"
+    ;;
+  reset-ranking)
+    curl $CURL_COMMON -X POST -H "Authorization: Bearer $TOKEN" "$BASE/v1/apps/reset-ranking"
     ;;
   tty-exec)
     [ "$#" -gt 0 ] || { print_tty_exec_help >&2; exit 2; }

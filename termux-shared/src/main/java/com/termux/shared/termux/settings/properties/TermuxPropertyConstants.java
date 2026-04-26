@@ -361,6 +361,30 @@ public final class TermuxPropertyConstants {
      */
     public static final ImmutableBiMap<String, Integer> MAP_SESSION_SHORTCUTS = new ImmutableBiMap.Builder<String, Integer>().put(KEY_SHORTCUT_CREATE_SESSION, ACTION_SHORTCUT_CREATE_SESSION).put(KEY_SHORTCUT_NEXT_SESSION, ACTION_SHORTCUT_NEXT_SESSION).put(KEY_SHORTCUT_PREVIOUS_SESSION, ACTION_SHORTCUT_PREVIOUS_SESSION).put(KEY_SHORTCUT_RENAME_SESSION, ACTION_SHORTCUT_RENAME_SESSION).build();
 
+    /* App launcher - int */
+    public static final String KEY_APP_LAUNCHER_BUTTON_COUNT = "app-launcher-button-count";
+    public static final int DEFAULT_IVALUE_APP_LAUNCHER_BUTTON_COUNT = 7;
+    public static final int IVALUE_APP_LAUNCHER_BUTTON_COUNT_MIN = 1;
+    public static final int IVALUE_APP_LAUNCHER_BUTTON_COUNT_MAX = 20;
+
+    public static final String KEY_APP_LAUNCHER_BAR_HEIGHT = "app-launcher-bar-height";
+    public static final int DEFAULT_IVALUE_APP_LAUNCHER_BAR_HEIGHT = 2;
+    public static final int IVALUE_APP_LAUNCHER_BAR_HEIGHT_MIN = 0;
+    public static final int IVALUE_APP_LAUNCHER_BAR_HEIGHT_MAX = 3;
+    public static final float[] APP_LAUNCHER_BAR_HEIGHT_SCALE_PRESETS = {1.45f, 1.60f, 1.88f, 2.18f};
+
+    /* App launcher - string */
+    public static final String KEY_APP_LAUNCHER_SEARCH_MODE = "app-launcher-search-mode";
+    public static final String DEFAULT_IVALUE_APP_LAUNCHER_SEARCH_MODE = "balanced";
+
+    public static final String KEY_APP_LAUNCHER_INPUT_CHAR = "app-launcher-input-char";
+    public static final String DEFAULT_IVALUE_APP_LAUNCHER_INPUT_CHAR = "%";
+
+    /* App launcher - boolean */
+    public static final String KEY_APP_LAUNCHER_BW_ICONS = "app-launcher-bw-icons";
+    public static final String KEY_APP_LAUNCHER_AZ_ROW = "app-launcher-az-row";
+    public static final String KEY_APP_LAUNCHER_AZ_DOUBLE_TAP_LOCK = "app-launcher-az-double-tap-lock";
+
     /* String */
     /**
      * Defines the key for whether back key will behave as escape key or literal back key
@@ -395,6 +419,8 @@ public final class TermuxPropertyConstants {
      */
     // Default: "extra-keys"
     public static final String KEY_APP_LAUNCHER_HIDDEN_APPS = "app-launcher-hidden-apps";
+
+    public static final String KEY_APP_LAUNCHER_ALWAYS_SEARCH = "app-launcher-always-search";
 
     public static final String KEY_EXTRA_KEYS = "extra-keys";
     public static final String KEY_EXTRA_KEYS2 = "extra-keys2";
@@ -483,7 +509,9 @@ public final class TermuxPropertyConstants {
     KEY_BELL_BEHAVIOUR, KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT, KEY_TERMINAL_CURSOR_BLINK_RATE, KEY_TERMINAL_CURSOR_STYLE, KEY_TERMINAL_MARGIN_HORIZONTAL, KEY_TERMINAL_MARGIN_VERTICAL, KEY_TERMINAL_TRANSCRIPT_ROWS, /* float */
     KEY_TERMINAL_TOOLBAR_HEIGHT_SCALE_FACTOR, /* Integer */
     KEY_SHORTCUT_CREATE_SESSION, KEY_SHORTCUT_NEXT_SESSION, KEY_SHORTCUT_PREVIOUS_SESSION, KEY_SHORTCUT_RENAME_SESSION, /* String */
-    KEY_BACK_KEY_BEHAVIOUR, KEY_DEFAULT_WORKING_DIRECTORY, KEY_EXTRA_KEYS, KEY_EXTRA_KEYS2, KEY_EXTRA_KEYS_STYLE, KEY_NIGHT_MODE, KEY_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR, KEY_VOLUME_KEYS_BEHAVIOUR, KEY_BACKGROUND_OVERLAY_COLOR, KEY_APP_LAUNCHER_HIDDEN_APPS));
+    KEY_BACK_KEY_BEHAVIOUR, KEY_DEFAULT_WORKING_DIRECTORY, KEY_EXTRA_KEYS, KEY_EXTRA_KEYS2, KEY_EXTRA_KEYS_STYLE, KEY_NIGHT_MODE, KEY_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR, KEY_VOLUME_KEYS_BEHAVIOUR, KEY_BACKGROUND_OVERLAY_COLOR, KEY_APP_LAUNCHER_HIDDEN_APPS, KEY_APP_LAUNCHER_ALWAYS_SEARCH, KEY_APP_LAUNCHER_SEARCH_MODE, KEY_APP_LAUNCHER_INPUT_CHAR, /* int */
+    KEY_APP_LAUNCHER_BUTTON_COUNT, KEY_APP_LAUNCHER_BAR_HEIGHT, /* boolean */
+    KEY_APP_LAUNCHER_BW_ICONS, KEY_APP_LAUNCHER_AZ_ROW, KEY_APP_LAUNCHER_AZ_DOUBLE_TAP_LOCK));
 
     /**
      * Defines the set for keys loaded by termux that have default boolean behaviour with false as default.
@@ -491,7 +519,7 @@ public final class TermuxPropertyConstants {
      * "false" -> false
      * default: false
      */
-    public static final Set<String> TERMUX_DEFAULT_FALSE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST = new HashSet<>(Arrays.asList(KEY_DISABLE_FILE_SHARE_RECEIVER, KEY_DISABLE_FILE_VIEW_RECEIVER, KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS, KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST, KEY_ENFORCE_CHAR_BASED_INPUT, KEY_HIDE_SOFT_KEYBOARD_ON_STARTUP, KEY_TERMINAL_ONCLICK_URL_OPEN, KEY_USE_CTRL_SPACE_WORKAROUND, KEY_USE_FULLSCREEN, KEY_USE_FULLSCREEN_WORKAROUND, KEY_ACTIVITY_FINISH_REMOVE_TASK, KEY_DRAW_BOLD_TEXT_WITH_BRIGHT_COLORS, TermuxConstants.PROP_ALLOW_EXTERNAL_APPS));
+    public static final Set<String> TERMUX_DEFAULT_FALSE_BOOLEAN_BEHAVIOUR_PROPERTIES_LIST = new HashSet<>(Arrays.asList(KEY_DISABLE_FILE_SHARE_RECEIVER, KEY_DISABLE_FILE_VIEW_RECEIVER, KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS, KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST, KEY_ENFORCE_CHAR_BASED_INPUT, KEY_HIDE_SOFT_KEYBOARD_ON_STARTUP, KEY_TERMINAL_ONCLICK_URL_OPEN, KEY_USE_CTRL_SPACE_WORKAROUND, KEY_USE_FULLSCREEN, KEY_USE_FULLSCREEN_WORKAROUND, KEY_ACTIVITY_FINISH_REMOVE_TASK, KEY_DRAW_BOLD_TEXT_WITH_BRIGHT_COLORS, TermuxConstants.PROP_ALLOW_EXTERNAL_APPS, KEY_APP_LAUNCHER_ALWAYS_SEARCH, KEY_APP_LAUNCHER_BW_ICONS, KEY_APP_LAUNCHER_AZ_ROW, KEY_APP_LAUNCHER_AZ_DOUBLE_TAP_LOCK));
 
     /**
      * Defines the set for keys loaded by termux that have default boolean behaviour with true as default.

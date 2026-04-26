@@ -20,6 +20,7 @@ import android.os.SystemClock;
 import com.jakewharton.processphoenix.ProcessPhoenix;
 import com.termux.app.launcher.LauncherAppLauncher;
 import com.termux.app.launcher.data.LauncherAppDataProvider;
+import com.termux.app.launcher.data.LauncherUsageStatsStore;
 import com.termux.app.launcher.model.LauncherAppEntry;
 import com.termux.privileged.PrivilegedBackend;
 import com.termux.privileged.PrivilegedBackendManager;
@@ -256,6 +257,8 @@ public class LauncherCtlApiServer {
                 return jsonResponse(runAppRestart(context));
             } else if ("POST".equals(request.method) && "/v1/auth/rotate".equals(request.path)) {
                 return jsonResponse(rotateAuthToken());
+            } else if ("POST".equals(request.method) && "/v1/apps/reset-ranking".equals(request.path)) {
+                return jsonResponse(runResetRanking(context));
             }
 
             JSONObject notFound = jsonError("not_found", "Unknown endpoint");
@@ -593,6 +596,14 @@ public class LauncherCtlApiServer {
         return data;
     }
 
+    private JSONObject runResetRanking(Context context) throws JSONException {
+        new LauncherUsageStatsStore(context).clear();
+        JSONObject data = new JSONObject();
+        data.put("ok", true);
+        data.put("reset", true);
+        return data;
+    }
+
     private JSONObject rotateAuthToken() throws JSONException {
         token = generateToken();
         try {
@@ -838,6 +849,7 @@ public class LauncherCtlApiServer {
         rateLimiters.put("POST:/v1/exec", new SimpleRateLimiter(30, 60_000));
         rateLimiters.put("POST:/v1/app/restart", new SimpleRateLimiter(5, 60_000));
         rateLimiters.put("POST:/v1/auth/rotate", new SimpleRateLimiter(5, 60_000));
+        rateLimiters.put("POST:/v1/apps/reset-ranking", new SimpleRateLimiter(5, 60_000));
     }
 
     private void writeClientConfig() throws IOException {
@@ -950,6 +962,9 @@ public class LauncherCtlApiServer {
             "  restart)\n" +
             "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/app/restart\"\n" +
             "    ;;\n" +
+            "  reset-ranking)\n" +
+            "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/apps/reset-ranking\"\n" +
+            "    ;;\n" +
             "  tty-exec)\n" +
             "    [ \"$#\" -gt 0 ] || { echo \"usage: launcherctl tty-exec <command>\" >&2; exit 2; }\n" +
             "    tty_doctor >/dev/null || { tty_doctor >&2; exit 1; }\n" +
@@ -964,7 +979,7 @@ public class LauncherCtlApiServer {
             "    curl $CURL_COMMON -X POST -H \"Authorization: Bearer $TOKEN\" \"$BASE/v1/auth/rotate\"\n" +
             "    ;;\n" +
             "  *)\n" +
-            "    echo \"usage: launcherctl {status|apps|launch|resources|media|art|notifications|exec|restart|tty-exec|tty-doctor|token rotate}\" >&2\n" +
+            "    echo \"usage: launcherctl {status|apps|launch|resources|media|art|notifications|exec|restart|reset-ranking|tty-exec|tty-doctor|token rotate}\" >&2\n" +
             "    exit 2\n" +
             "    ;;\n" +
             "esac\n";

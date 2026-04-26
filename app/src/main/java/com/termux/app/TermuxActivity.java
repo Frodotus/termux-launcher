@@ -326,8 +326,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private static final int CONTEXT_MENU_LOOK_AND_FEEL_ID = 4;
 
-    private static final int CONTEXT_MENU_APPS_BAR_ID = 5;
-
     private static final int CONTEXT_MENU_SETTINGS_ID = 6;
 
     private static final int CONTEXT_MENU_RESET_TERMINAL_ID = 7;
@@ -955,7 +953,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return new AccessoryRenderState(
             mPreferences.shouldShowTerminalToolbar(),
             mPreferences.getExtraKeysBlurRadius() > 0,
-            mPreferences.isAppLauncherAzRowEnabled(),
+            mProperties != null && mProperties.isAppLauncherAzRowEnabled(),
             mPreferences.getAppBarOpacity() / 100f,
             mPreferences.getExtraKeysBlurRadius()
         );
@@ -1794,10 +1792,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private char getSuggestionBarSplitChar() {
-        if (mPreferences == null) {
+        if (mProperties == null) {
             return ' ';
         }
-        String inputChar = mPreferences.getAppLauncherInputChar();
+        String inputChar = mProperties.getAppLauncherInputChar();
         if (inputChar == null) {
             return ' ';
         }
@@ -1810,7 +1808,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return false;
         }
         if (keyCode == android.view.KeyEvent.KEYCODE_DEL || keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
-            if (mPreferences != null && mPreferences.getAppLauncherAlwaysSearch()) return true;
+            if (mProperties != null && mProperties.getAppLauncherAlwaysSearch()) return true;
             return mSuggestionBarExplicitSearchActive || mSuggestionBarView.isSearchSurfaceActive();
         }
         return false;
@@ -1820,7 +1818,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (ctrlDown || mSuggestionBarView == null) {
             return false;
         }
-        if (mPreferences != null && mPreferences.getAppLauncherAlwaysSearch()) return true;
+        if (mProperties != null && mProperties.getAppLauncherAlwaysSearch()) return true;
         if (mSuggestionBarExplicitSearchActive || mSuggestionBarView.isSearchSurfaceActive()) {
             return true;
         }
@@ -1863,7 +1861,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mLauncherConfigRepository == null) {
             mLauncherConfigRepository = new LauncherConfigRepository(mPreferences);
         }
-        int maxButtons = mPreferences.getAppLauncherButtonCount();
+        int maxButtons = mProperties != null ? mProperties.getAppLauncherButtonCount() : 7;
         if (maxButtons <= 0) {
             DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
             maxButtons = calculateSuggestionBarMaxButtons(displayMetrics);
@@ -1871,9 +1869,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSuggestionBarView.setMaxButtonCount(maxButtons);
         mSuggestionBarView.setDefaultButtons(new ArrayList<>());
         mSuggestionBarView.setTextSize(10f);
-        mSuggestionBarView.setSearchTolerance(mPreferences.getAppLauncherSearchTolerance());
-        mSuggestionBarView.setHiddenApps(getProperties() != null ? getProperties().getAppLauncherHiddenApps() : new java.util.HashSet<>());
-        mSuggestionBarView.setBandW(mPreferences.isAppLauncherBwIconsEnabled());
+        mSuggestionBarView.setSearchTolerance(mProperties != null ? mProperties.getAppLauncherSearchTolerance() : 70);
+        mSuggestionBarView.setHiddenApps(mProperties != null ? mProperties.getAppLauncherHiddenApps() : new java.util.HashSet<>());
+        mSuggestionBarView.setBandW(mProperties != null && mProperties.isAppLauncherBwIconsEnabled());
         mSuggestionBarView.setIconScale(resolveDerivedDockIconScale());
         mSuggestionBarView.setDockRowHeightHintPx(buildDockLayoutMetrics(0).appsBarHeightPx);
         mSuggestionBarView.setAppBarOpacity(mPreferences.getAppBarOpacity());
@@ -2466,7 +2464,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void lockScreenFromAzDoubleTap() {
-        if (mPreferences == null || !mPreferences.isAppLauncherAzDoubleTapLockEnabled()) {
+        if (mProperties == null || !mProperties.isAppLauncherAzDoubleTapLockEnabled()) {
             return;
         }
         PrivilegedBackendManager manager = PrivilegedBackendManager.getInstance();
@@ -2508,7 +2506,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void applySuggestionBarInputChar() {
-        if (mTerminalView == null || mPreferences == null)
+        if (mTerminalView == null)
             return;
         mTerminalView.setSplitChar(getSuggestionBarSplitChar());
     }
@@ -2643,17 +2641,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     @NonNull
     private DockLayoutMetrics buildDockLayoutMetrics(int additionalAppsBarHeightPx) {
-        if (mPreferences == null) {
+        if (mProperties == null) {
             return new DockLayoutMetrics(0, 0, 0, 0);
         }
 
         float density = getResources().getDisplayMetrics().density;
-        float barHeightScale = mPreferences.getAppLauncherBarHeightScale();
+        float barHeightScale = mProperties.getAppLauncherBarHeightScale();
         float normalizedScale = Math.max(0f, Math.min(1f, (barHeightScale - 1.45f) / (2.18f - 1.45f)));
         int appsBarHeightPx = Math.max(0,
             Math.round(getDockBaseToolbarHeightPx() * (1.08f + (normalizedScale * 0.30f))) + Math.max(0, additionalAppsBarHeightPx));
 
-        boolean azEnabled = mPreferences.isAppLauncherAzRowEnabled();
+        boolean azEnabled = mProperties.isAppLauncherAzRowEnabled();
         int azRowHeightPx = 0;
         int indicatorBandHeightPx = 0;
         if (azEnabled) {
@@ -2667,10 +2665,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private float resolveDerivedDockIconScale() {
-        if (mPreferences == null) {
+        if (mProperties == null) {
             return 1.36f;
         }
-        float barHeightScale = mPreferences.getAppLauncherBarHeightScale();
+        float barHeightScale = mProperties.getAppLauncherBarHeightScale();
         float normalized = Math.max(0f, Math.min(1f, (barHeightScale - 1.45f) / (2.18f - 1.45f)));
         return 1.34f + (normalized * 0.64f);
     }
@@ -3010,13 +3008,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 R.string.termux_style_preferences_title));
     }
 
-    private void openAppsBarSettings() {
-        ActivityUtils.startActivity(this,
-            SettingsActivity.createFragmentIntent(this,
-                com.termux.app.fragments.settings.termux.LauncherPreferencesFragment.class,
-                R.string.termux_launcher_preferences_title));
-    }
-
     private void openSettingsHome() {
         ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class));
     }
@@ -3038,9 +3029,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return true;
             case CONTEXT_MENU_LOOK_AND_FEEL_ID:
                 openLookAndFeelSettings();
-                return true;
-            case CONTEXT_MENU_APPS_BAR_ID:
-                openAppsBarSettings();
                 return true;
             case CONTEXT_MENU_SETTINGS_ID:
                 openSettingsHome();
@@ -3075,7 +3063,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 : R.string.action_enable_background_image)
         ));
         items.add(new TerminalActionItem(CONTEXT_MENU_LOOK_AND_FEEL_ID, getString(R.string.action_look_and_feel)));
-        items.add(new TerminalActionItem(CONTEXT_MENU_APPS_BAR_ID, getString(R.string.action_apps_bar)));
         items.add(new TerminalActionItem(CONTEXT_MENU_SETTINGS_ID, getString(R.string.action_open_settings)));
         items.add(new TerminalActionItem(CONTEXT_MENU_RESET_TERMINAL_ID, getString(R.string.action_reset_terminal)));
         items.add(new TerminalActionItem(CONTEXT_MENU_KILL_PROCESS_ID,
@@ -3362,7 +3349,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         resetAzGestureState(false, true);
         mSuggestionBarView.onTerminalInteraction();
-        if (mPreferences != null && mPreferences.getAppLauncherAlwaysSearch()) {
+        if (mProperties != null && mProperties.getAppLauncherAlwaysSearch()) {
             String input = normalizeSuggestionBarInput(mTerminalView.getCurrentInputFromStart());
             if (!input.isEmpty()) {
                 mSuggestionBarView.reloadWithInput(input, mTerminalView);
@@ -3397,7 +3384,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
         resetAzGestureState(false, true);
         mSuggestionBarView.onTerminalInteraction();
-        if (mPreferences != null && mPreferences.getAppLauncherAlwaysSearch()) {
+        if (mProperties != null && mProperties.getAppLauncherAlwaysSearch()) {
             if (enter) {
                 if (mSuggestionBarView.isSearchSurfaceActive()) {
                     mSuggestionBarView.reloadWithInput("", mTerminalView);

@@ -115,65 +115,11 @@ public final class TermuxPreferenceConstants {
         public static final boolean DEFAULT_VALUE_SHOW_TERMINAL_TOOLBAR = true;
 
         /**
-         * Defines the key for app launcher button count.
-         */
-        public static final String KEY_APP_LAUNCHER_BUTTON_COUNT = "app_launcher_button_count";
-
-        public static final int DEFAULT_APP_LAUNCHER_BUTTON_COUNT = 7;
-
-        /**
-         * Defines the key for app launcher search tolerance (0-100).
-         * Kept for legacy settings migration.
-         */
-        public static final String KEY_APP_LAUNCHER_SEARCH_TOLERANCE = "app_launcher_search_tolerance";
-
-        public static final int DEFAULT_APP_LAUNCHER_SEARCH_TOLERANCE = 70;
-
-        /**
-         * Defines the key for app launcher search mode.
-         */
-        public static final String KEY_APP_LAUNCHER_SEARCH_MODE = "app_launcher_search_mode";
-
-        public static final String DEFAULT_APP_LAUNCHER_SEARCH_MODE = "balanced";
-
-        /**
-         * Defines the key for app launcher input split character.
-         */
-        public static final String KEY_APP_LAUNCHER_INPUT_CHAR = "app_launcher_input_char";
-
-        public static final String DEFAULT_APP_LAUNCHER_INPUT_CHAR = "%";
-
-        public static final String KEY_APP_LAUNCHER_ALWAYS_SEARCH = "app_launcher_always_search";
-
-        public static final boolean DEFAULT_APP_LAUNCHER_ALWAYS_SEARCH = false;
-
-        /**
-         * Defines the key for app launcher default buttons.
+         * Defines the key for app launcher default buttons (legacy, kept for migration only).
          */
         public static final String KEY_APP_LAUNCHER_DEFAULT_BUTTONS = "app_launcher_default_buttons";
 
         public static final String DEFAULT_APP_LAUNCHER_DEFAULT_BUTTONS = "";
-
-        /**
-         * Defines the key for app launcher bar height scale.
-         */
-        public static final String KEY_APP_LAUNCHER_BAR_HEIGHT = "app_launcher_bar_height";
-
-        public static final float DEFAULT_APP_LAUNCHER_BAR_HEIGHT = 1.45f;
-
-        /**
-         * Defines the key for app launcher black and white icons.
-         */
-        public static final String KEY_APP_LAUNCHER_BW_ICONS = "app_launcher_bw_icons";
-
-        public static final boolean DEFAULT_APP_LAUNCHER_BW_ICONS = false;
-
-        /**
-         * Defines the key for app launcher icon scale.
-         */
-        public static final String KEY_APP_LAUNCHER_ICON_SCALE = "app_launcher_icon_scale";
-
-        public static final float DEFAULT_APP_LAUNCHER_ICON_SCALE = 1.55f;
 
         /**
          * Defines the key for typed pinned apps/folders launcher configuration.
@@ -188,20 +134,6 @@ public final class TermuxPreferenceConstants {
         public static final String KEY_APP_LAUNCHER_PINNED_ITEMS_SCHEMA_VERSION = "app_launcher_pinned_items_schema_version";
 
         public static final int DEFAULT_APP_LAUNCHER_PINNED_ITEMS_SCHEMA_VERSION = 0;
-
-        /**
-         * Defines the key for enabling A-Z scrub row for launcher.
-         */
-        public static final String KEY_APP_LAUNCHER_AZ_ROW_ENABLED = "app_launcher_az_row_enabled";
-
-        public static final boolean DEFAULT_APP_LAUNCHER_AZ_ROW_ENABLED = false;
-
-        /**
-         * Defines the key for enabling double-tap on A-Z row to lock screen.
-         */
-        public static final String KEY_APP_LAUNCHER_AZ_DOUBLE_TAP_LOCK = "app_launcher_az_double_tap_lock";
-
-        public static final boolean DEFAULT_APP_LAUNCHER_AZ_DOUBLE_TAP_LOCK = false;
 
         /**
          * Defines the key for enabling launcher app open/close animations.

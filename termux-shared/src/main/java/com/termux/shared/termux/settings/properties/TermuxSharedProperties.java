@@ -276,6 +276,14 @@ public abstract class TermuxSharedProperties {
                 return (String) getDefaultWorkingDirectoryInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_APP_LAUNCHER_HIDDEN_APPS:
                 return value != null ? value : "";
+            case TermuxPropertyConstants.KEY_APP_LAUNCHER_SEARCH_MODE:
+                return (String) getAppLauncherSearchModeInternalPropertyValueFromValue(value);
+            case TermuxPropertyConstants.KEY_APP_LAUNCHER_INPUT_CHAR:
+                return value != null && !value.trim().isEmpty() ? value : TermuxPropertyConstants.DEFAULT_IVALUE_APP_LAUNCHER_INPUT_CHAR;
+            case TermuxPropertyConstants.KEY_APP_LAUNCHER_BUTTON_COUNT:
+                return (int) getAppLauncherButtonCountInternalPropertyValueFromValue(value);
+            case TermuxPropertyConstants.KEY_APP_LAUNCHER_BAR_HEIGHT:
+                return (int) getAppLauncherBarHeightInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_EXTRA_KEYS:
                 return (String) getExtraKeysInternalPropertyValueFromValue(value);
             case TermuxPropertyConstants.KEY_EXTRA_KEYS2:
@@ -537,6 +545,79 @@ public abstract class TermuxSharedProperties {
         return (String) SharedProperties.getDefaultIfNotInMap(TermuxPropertyConstants.KEY_VOLUME_KEYS_BEHAVIOUR, TermuxPropertyConstants.MAP_VOLUME_KEYS_BEHAVIOUR, SharedProperties.toLowerCase(value), TermuxPropertyConstants.DEFAULT_IVALUE_VOLUME_KEYS_BEHAVIOUR, true, LOG_TAG);
     }
 
+    public static int getAppLauncherButtonCountInternalPropertyValueFromValue(String value) {
+        return SharedProperties.getDefaultIfNotInRange(TermuxPropertyConstants.KEY_APP_LAUNCHER_BUTTON_COUNT,
+            DataUtils.getIntFromString(value, TermuxPropertyConstants.DEFAULT_IVALUE_APP_LAUNCHER_BUTTON_COUNT),
+            TermuxPropertyConstants.DEFAULT_IVALUE_APP_LAUNCHER_BUTTON_COUNT,
+            TermuxPropertyConstants.IVALUE_APP_LAUNCHER_BUTTON_COUNT_MIN,
+            TermuxPropertyConstants.IVALUE_APP_LAUNCHER_BUTTON_COUNT_MAX, true, true, LOG_TAG);
+    }
+
+    public static int getAppLauncherBarHeightInternalPropertyValueFromValue(String value) {
+        return SharedProperties.getDefaultIfNotInRange(TermuxPropertyConstants.KEY_APP_LAUNCHER_BAR_HEIGHT,
+            DataUtils.getIntFromString(value, TermuxPropertyConstants.DEFAULT_IVALUE_APP_LAUNCHER_BAR_HEIGHT),
+            TermuxPropertyConstants.DEFAULT_IVALUE_APP_LAUNCHER_BAR_HEIGHT,
+            TermuxPropertyConstants.IVALUE_APP_LAUNCHER_BAR_HEIGHT_MIN,
+            TermuxPropertyConstants.IVALUE_APP_LAUNCHER_BAR_HEIGHT_MAX, true, true, LOG_TAG);
+    }
+
+    public static String getAppLauncherSearchModeInternalPropertyValueFromValue(String value) {
+        if (value == null || value.trim().isEmpty())
+            return TermuxPropertyConstants.DEFAULT_IVALUE_APP_LAUNCHER_SEARCH_MODE;
+        String lower = value.trim().toLowerCase(java.util.Locale.US);
+        if ("strict".equals(lower) || "loose".equals(lower) || "balanced".equals(lower))
+            return lower;
+        return TermuxPropertyConstants.DEFAULT_IVALUE_APP_LAUNCHER_SEARCH_MODE;
+    }
+
+    public int getAppLauncherButtonCount() {
+        return (int) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_BUTTON_COUNT, true);
+    }
+
+    public String getAppLauncherSearchMode() {
+        return (String) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_SEARCH_MODE, true);
+    }
+
+    public int getAppLauncherSearchTolerance() {
+        String mode = getAppLauncherSearchMode();
+        if (mode == null) return 70;
+        switch (mode) {
+            case "strict": return 85;
+            case "loose": return 55;
+            default: return 70;
+        }
+    }
+
+    public String getAppLauncherInputChar() {
+        String value = (String) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_INPUT_CHAR, true);
+        if (value == null || value.trim().isEmpty())
+            return TermuxPropertyConstants.DEFAULT_IVALUE_APP_LAUNCHER_INPUT_CHAR;
+        return value;
+    }
+
+    public int getAppLauncherBarHeightPreset() {
+        return (int) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_BAR_HEIGHT, true);
+    }
+
+    public float getAppLauncherBarHeightScale() {
+        int preset = getAppLauncherBarHeightPreset();
+        float[] presets = TermuxPropertyConstants.APP_LAUNCHER_BAR_HEIGHT_SCALE_PRESETS;
+        preset = Math.max(0, Math.min(preset, presets.length - 1));
+        return presets[preset];
+    }
+
+    public boolean isAppLauncherBwIconsEnabled() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_BW_ICONS, true);
+    }
+
+    public boolean isAppLauncherAzRowEnabled() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_AZ_ROW, true);
+    }
+
+    public boolean isAppLauncherAzDoubleTapLockEnabled() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_AZ_DOUBLE_TAP_LOCK, true);
+    }
+
     public boolean shouldAllowExternalApps() {
         return (boolean) getInternalPropertyValue(TermuxConstants.PROP_ALLOW_EXTERNAL_APPS, true);
     }
@@ -665,6 +746,10 @@ public abstract class TermuxSharedProperties {
 
     public boolean areVirtualVolumeKeysDisabled() {
         return (boolean) TermuxPropertyConstants.IVALUE_VOLUME_KEY_BEHAVIOUR_VOLUME.equals(getInternalPropertyValue(TermuxPropertyConstants.KEY_VOLUME_KEYS_BEHAVIOUR, true));
+    }
+
+    public boolean getAppLauncherAlwaysSearch() {
+        return (boolean) getInternalPropertyValue(TermuxPropertyConstants.KEY_APP_LAUNCHER_ALWAYS_SEARCH, true);
     }
 
     public Set<String> getAppLauncherHiddenApps() {

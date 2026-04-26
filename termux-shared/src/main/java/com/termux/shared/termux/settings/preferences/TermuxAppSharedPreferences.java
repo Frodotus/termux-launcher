@@ -87,105 +87,8 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         return !currentValue;
     }
 
-    public int getAppLauncherButtonCount() {
-        int buttonCount = SharedPreferenceUtils.getIntStoredAsString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_BUTTON_COUNT, TERMUX_APP.DEFAULT_APP_LAUNCHER_BUTTON_COUNT);
-        return DataUtils.clamp(buttonCount, 1, 20);
-    }
-
-    public void setAppLauncherButtonCount(int value) {
-        SharedPreferenceUtils.setIntStoredAsString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_BUTTON_COUNT, value, false);
-    }
-
-    public int getAppLauncherSearchTolerance() {
-        String mode = getAppLauncherSearchMode();
-        if (mode == null || mode.trim().isEmpty()) {
-            int tolerance = SharedPreferenceUtils.getIntStoredAsString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_SEARCH_TOLERANCE, TERMUX_APP.DEFAULT_APP_LAUNCHER_SEARCH_TOLERANCE);
-            return DataUtils.clamp(tolerance, 0, 100);
-        }
-        switch (mode) {
-            case "strict":
-                return 85;
-            case "loose":
-                return 55;
-            case "balanced":
-            default:
-                return 70;
-        }
-    }
-
-    public void setAppLauncherSearchTolerance(int value) {
-        SharedPreferenceUtils.setIntStoredAsString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_SEARCH_TOLERANCE, value, false);
-    }
-
-    public String getAppLauncherSearchMode() {
-        return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_SEARCH_MODE, TERMUX_APP.DEFAULT_APP_LAUNCHER_SEARCH_MODE, true);
-    }
-
-    public void setAppLauncherSearchMode(String value) {
-        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_SEARCH_MODE, value, false);
-    }
-
-    public String getAppLauncherInputChar() {
-        String value = SharedPreferenceUtils.getString(
-            mSharedPreferences,
-            TERMUX_APP.KEY_APP_LAUNCHER_INPUT_CHAR,
-            TERMUX_APP.DEFAULT_APP_LAUNCHER_INPUT_CHAR,
-            true
-        );
-        String normalized = normalizeAppLauncherInputChar(value);
-        if (!normalized.equals(value)) {
-            value = normalized;
-            SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_INPUT_CHAR, value, true);
-        }
-        return value;
-    }
-
-    public void setAppLauncherInputChar(String value) {
-        value = normalizeAppLauncherInputChar(value);
-        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_INPUT_CHAR, value, false);
-    }
-
-    public boolean getAppLauncherAlwaysSearch() {
-        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_ALWAYS_SEARCH, TERMUX_APP.DEFAULT_APP_LAUNCHER_ALWAYS_SEARCH);
-    }
-
-    public void setAppLauncherAlwaysSearch(boolean value) {
-        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_ALWAYS_SEARCH, value, false);
-    }
-
     public String getAppLauncherDefaultButtons() {
         return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_DEFAULT_BUTTONS, TERMUX_APP.DEFAULT_APP_LAUNCHER_DEFAULT_BUTTONS, true);
-    }
-
-    public void setAppLauncherDefaultButtons(String value) {
-        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_DEFAULT_BUTTONS, value, false);
-    }
-
-    public float getAppLauncherBarHeightScale() {
-        float heightScale = SharedPreferenceUtils.getFloat(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_BAR_HEIGHT, TERMUX_APP.DEFAULT_APP_LAUNCHER_BAR_HEIGHT);
-        return DataUtils.rangedOrDefault(heightScale, TERMUX_APP.DEFAULT_APP_LAUNCHER_BAR_HEIGHT, 0.4f, 3.0f);
-    }
-
-    public void setAppLauncherBarHeightScale(float value) {
-        SharedPreferenceUtils.setFloat(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_BAR_HEIGHT, value, false);
-    }
-
-    public boolean isAppLauncherBwIconsEnabled() {
-        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_BW_ICONS, TERMUX_APP.DEFAULT_APP_LAUNCHER_BW_ICONS);
-    }
-
-    public void setAppLauncherBwIconsEnabled(boolean value) {
-        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_BW_ICONS, value, false);
-    }
-
-    public float getAppLauncherIconScale() {
-        float iconScale = SharedPreferenceUtils.getFloat(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_ICON_SCALE, TERMUX_APP.DEFAULT_APP_LAUNCHER_ICON_SCALE);
-        return DataUtils.rangedOrDefault(iconScale, TERMUX_APP.DEFAULT_APP_LAUNCHER_ICON_SCALE, 1.0f, 1.8f);
-    }
-
-    public void setAppLauncherIconScale(float value) {
-        float clamped = Math.max(1.0f, Math.min(1.8f, value));
-        SharedPreferenceUtils.setFloat(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_ICON_SCALE, clamped, false);
     }
 
     public String getAppLauncherPinnedItemsV2() {
@@ -204,24 +107,6 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
 
     public void setAppLauncherPinnedItemsSchemaVersion(int version) {
         SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_PINNED_ITEMS_SCHEMA_VERSION, version, true);
-    }
-
-    public boolean isAppLauncherAzRowEnabled() {
-        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_AZ_ROW_ENABLED,
-            TERMUX_APP.DEFAULT_APP_LAUNCHER_AZ_ROW_ENABLED);
-    }
-
-    public void setAppLauncherAzRowEnabled(boolean value) {
-        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_AZ_ROW_ENABLED, value, false);
-    }
-
-    public boolean isAppLauncherAzDoubleTapLockEnabled() {
-        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_AZ_DOUBLE_TAP_LOCK,
-            TERMUX_APP.DEFAULT_APP_LAUNCHER_AZ_DOUBLE_TAP_LOCK);
-    }
-
-    public void setAppLauncherAzDoubleTapLockEnabled(boolean value) {
-        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_APP_LAUNCHER_AZ_DOUBLE_TAP_LOCK, value, false);
     }
 
     public boolean isAppLauncherAnimationsEnabled() {
@@ -279,13 +164,6 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
             true,
             true
         );
-    }
-
-    public static String normalizeAppLauncherInputChar(@Nullable String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return TERMUX_APP.DEFAULT_APP_LAUNCHER_INPUT_CHAR;
-        }
-        return value;
     }
 
     public static boolean shouldEnableTerminalMarginAdjustmentOnMigration(boolean migrationDone, boolean hasStoredValue, boolean currentlyEnabled) {
